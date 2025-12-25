@@ -1,28 +1,32 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
+import os
 
 app = Flask(__name__)
+# async_modeを指定せず、システムに任せる設定にします
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 players = {}
 game_state = {"phase": "day"}
 
+# GitHubのstaticフォルダに置いたファイル名に合わせて修正
+# ※スペースや日本語が含まれる場合は、ファイル名を英数字（day.pngなど）に変えるのが一番安全です
 MAP_URLS = {
     "day": "/static/マップ画像昼テキスト付.png",
-    "night": "https://i.imgur.com/6MtoLnG.png"
+    "night": "/static/night.png"
 }
 
 ROOM_DATA = {
-    "待機室": "https://i.imgur.com/iewjbtq.png",
-    "広場": "https://i.imgur.com/qt7x9D6.png",
-    "Aの家": "https://i.imgur.com/VKhyXdr.png",
-    "Mの家": "https://i.imgur.com/dcAZSjQ.png",
-    "Sの家": "https://i.imgur.com/4m5cW8K.png",
-    "パン屋": "https://i.imgur.com/rCTQaT3.png",
-    "貯水タンク": "https://i.imgur.com/Wx8Hwbc.png",
-    "電気室": "https://i.imgur.com/n4tHXqB.png",
-    "畑": "https://i.imgur.com/gScqC7X.png",
-    "風車": "https://i.imgur.com/a9aN91O.png"
+    "待機室": "/static/taiki.png",
+    "広場": "/static/hiroba.png",
+    "Aの家": "/static/a_house.png",
+    "Mの家": "/static/m_house.png",
+    "Sの家": "/static/s_house.png",
+    "パン屋": "/static/panya.png",
+    "貯水タンク": "/static/tank.png",
+    "電気室": "/static/denkishitsu.png",
+    "畑": "/static/hatake.png",
+    "風車": "/static/fusha.png"
 }
 
 @app.route('/')
@@ -66,7 +70,6 @@ def handle_phase(data):
     emit('phase_update', {"phase": new_phase, "url": MAP_URLS[new_phase]}, broadcast=True)
 
 if __name__ == '__main__':
-    # 外部サーバーのポート番号に対応させるための設定
-    import os
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
+    # eventletでの動作を安定させるためにデバッグモードを無効化します
     socketio.run(app, host='0.0.0.0', port=port)
