@@ -13,20 +13,20 @@ game_state = {"phase": "day"}
 # ※スペースや日本語が含まれる場合は、ファイル名を英数字（day.pngなど）に変えるのが一番安全です
 MAP_URLS = {
     "day": "/static/マップ画像昼テキスト付.png",
-    "night": "/static/night.png"
+    "night": "/static/マップ画像夜テキスト付.png"
 }
 
 ROOM_DATA = {
-    "待機室": "/static/taiki.png",
-    "広場": "/static/hiroba.png",
-    "Aの家": "/static/a_house.png",
-    "Mの家": "/static/m_house.png",
-    "Sの家": "/static/s_house.png",
-    "パン屋": "/static/panya.png",
-    "貯水タンク": "/static/tank.png",
-    "電気室": "/static/denkishitsu.png",
-    "畑": "/static/hatake.png",
-    "風車": "/static/fusha.png"
+    "待機室": "/static/待機室テキスト付.png",
+    "広場": "/static/広場テキスト付.png",
+    "Aの家": "/static/Aの家テキスト付.png",
+    "Mの家": "/static/Mの家テキスト付.png",
+    "Sの家": "/static/Sの家テキスト付.png",
+    "パン屋": "/static/パン屋テキスト付.png",
+    "貯水タンク": "/static/貯水タンクテキスト付.png",
+    "電気室": "/static/電気室テキスト付.png",
+    "畑": "/static/畑テキスト付.png",
+    "風車": "/static/風車テキスト付.png"
 }
 
 @app.route('/')
