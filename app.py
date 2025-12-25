@@ -8,7 +8,7 @@ players = {}
 game_state = {"phase": "day"}
 
 MAP_URLS = {
-    "day": "https://i.imgur.com/upUbV5D.png",
+    "day": "/static/マップ画像昼テキスト付.png",
     "night": "https://i.imgur.com/6MtoLnG.png"
 }
 
