@@ -3,14 +3,13 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import os
 
 app = Flask(__name__)
-# async_modeを指定せず、システムに任せる設定にします
+# Renderでの動作を安定させるための設定
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 players = {}
 game_state = {"phase": "day"}
 
-# GitHubのstaticフォルダに置いたファイル名に合わせて修正
-# ※スペースや日本語が含まれる場合は、ファイル名を英数字（day.pngなど）に変えるのが一番安全です
+# 画像パス（staticフォルダ内のファイル名と完全に一致させてください）
 MAP_URLS = {
     "day": "/static/マップ画像昼テキスト付.png",
     "night": "/static/マップ画像夜テキスト付.png"
@@ -70,6 +69,6 @@ def handle_phase(data):
     emit('phase_update', {"phase": new_phase, "url": MAP_URLS[new_phase]}, broadcast=True)
 
 if __name__ == '__main__':
+    # Renderは環境変数PORTを指定してくるため、それに合わせます
     port = int(os.environ.get("PORT", 10000))
-    # eventletでの動作を安定させるためにデバッグモードを無効化します
     socketio.run(app, host='0.0.0.0', port=port)
