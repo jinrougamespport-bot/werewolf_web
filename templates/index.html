@@ -98,52 +98,19 @@
     </style>
 </head>
 <body>
-
-    <div id="login-overlay">
-        <div class="login-box">
-            <h2 style="margin: 0 0 20px 0;">Web人狼</h2>
-            <input type="text" id="username" placeholder="名前を入力..." autocomplete="off">
-            <button class="start-btn" onclick="joinGame()">入村する</button>
-        </div>
-    </div>
-
-    <div id="fullscreen-overlay" onclick="closeFullscreen()">
-        <button id="close-btn" onclick="closeFullscreen()">×</button>
-        <img id="fullscreen-img" src="" alt="photo">
-        <div id="fullscreen-title" style="position: absolute; bottom: 10%; color: white; font-weight: bold; text-shadow: 1px 1px 2px #000;"></div>
-    </div>
-
+    <div id="login-overlay"><div class="login-box"><h2>Web人狼</h2><input type="text" id="username" placeholder="名前を入力..."><button class="start-btn" onclick="joinGame()">入村する</button></div></div>
+    <div id="fullscreen-overlay" onclick="closeFullscreen()"><button id="close-btn" onclick="closeFullscreen()">×</button><img id="fullscreen-img" src=""><div id="fullscreen-title" style="position: absolute; bottom: 10%; color: white;"></div></div>
     <div id="game-container">
-        <div class="floating-map" onclick="showFullMap()">
-            <img id="map-display" src="" alt="map">
-        </div>
-
-        <div class="admin-bar">
-            <button class="admin-btn" onclick="changePhase('day')">☀ 朝</button>
-            <button class="admin-btn" onclick="changePhase('night')">🌙 夜</button>
-        </div>
-
+        <div class="floating-map" onclick="showFullMap()"><img id="map-display" src=""></div>
+        <div class="admin-bar"><button class="admin-btn" onclick="changePhase('day')">☀ 朝</button><button class="admin-btn" onclick="changePhase('night')">🌙 夜</button></div>
         <div id="chat-area"></div>
-
-        <div id="quick-reply">
-            <div id="fixed-actions">
-                <button class="qr-btn loc-btn" onclick="showCurrentLocation()">📍 現在地</button>
-            </div>
-            <div id="scroll-actions"></div>
-        </div>
-
-        <div class="controls">
-            <input type="text" id="chat-input" placeholder="メッセージを入力...">
-            <button class="send-btn" onclick="sendMessage()">➤</button>
-        </div>
+        <div id="quick-reply"><div id="scroll-actions"></div></div>
+        <div class="controls"><input type="text" id="chat-input" placeholder="メッセージを入力..."><button class="send-btn" onclick="sendMessage()">➤</button></div>
     </div>
 
     <script>
         const socket = io();
-        let currentRoomName = "";
-        let currentRoomUrl = "";
-        let currentMapUrl = ""; // 現在の全体地図URLを保持
-        const allRooms = ["待機室", "広場", "パン屋", "畑", "風車", "電気室", "貯水タンク", "Aの家", "Mの家", "Sの家"];
+        let currentMapUrl = "";
 
         function joinGame() {
             const name = document.getElementById('username').value.trim();
@@ -153,48 +120,34 @@
             socket.emit('join_game', {username: name});
         }
 
-        // 移動ボタンの更新
-        function updateMoveButtons() {
-            const container = document.getElementById('scroll-actions');
-            container.innerHTML = ""; 
-            allRooms.forEach(room => {
-                if (room !== currentRoomName) {
-                    const btn = document.createElement('button');
-                    btn.className = "qr-btn";
-                    btn.innerText = room;
-                    btn.onclick = (e) => { e.stopPropagation(); move(room); };
-                    container.appendChild(btn);
-                }
-            });
-        }
-
-        // 現在地の全画面表示
-        function showCurrentLocation() {
-            const overlay = document.getElementById('fullscreen-overlay');
-            const fullImg = document.getElementById('fullscreen-img');
-            const fullTitle = document.getElementById('fullscreen-title');
-            fullImg.src = currentRoomUrl;
-            fullTitle.innerText = "📍 現在地：" + currentRoomName;
-            overlay.style.display = 'flex';
-        }
-
-        // 地図の全画面表示
         function showFullMap() {
-            const overlay = document.getElementById('fullscreen-overlay');
-            const fullImg = document.getElementById('fullscreen-img');
-            const fullTitle = document.getElementById('fullscreen-title');
-            fullImg.src = currentMapUrl;
-            fullTitle.innerText = "🗺️ 全体図";
-            overlay.style.display = 'flex';
+            document.getElementById('fullscreen-img').src = currentMapUrl;
+            document.getElementById('fullscreen-title').innerText = "全体図";
+            document.getElementById('fullscreen-overlay').style.display = 'flex';
         }
 
-        function closeFullscreen() {
-            document.getElementById('fullscreen-overlay').style.display = 'none';
-        }
+        function closeFullscreen() { document.getElementById('fullscreen-overlay').style.display = 'none'; }
+        
+        // 移動ボタンを動的に作成
+        socket.on('room_update', (data) => {
+            const container = document.getElementById('scroll-actions');
+            container.innerHTML = ""; // 一旦空にする
+            
+            // サーバーから送られてきた「移動可能先」のリストを回す
+            data.can_move_to.forEach(roomName => {
+                const btn = document.createElement('button');
+                btn.className = "qr-btn";
+                btn.innerText = roomName;
+                btn.onclick = () => socket.emit('move', {room: roomName});
+                container.appendChild(btn);
+            });
+        });
 
-        function move(roomName) { 
-            socket.emit('move', {room: roomName}); 
-        }
+        socket.on('phase_update', (data) => {
+            currentMapUrl = data.url;
+            document.getElementById('map-display').src = data.url;
+            document.body.style.backgroundColor = (data.phase === 'night') ? "#1a1a2e" : "#7494C0";
+        });
 
         function sendMessage() {
             const input = document.getElementById('chat-input');
@@ -203,32 +156,13 @@
             input.value = "";
         }
 
-        function changePhase(p) { socket.emit('change_phase', {phase: p}); }
-
-        // サーバーからの受信用
-        socket.on('room_update', (data) => {
-            currentRoomName = data.room;
-            currentRoomUrl = data.url;
-            updateMoveButtons(); 
-        });
-
-        socket.on('phase_update', (data) => {
-            currentMapUrl = data.url; // 拡大用にURLを保存
-            document.getElementById('map-display').src = data.url;
-            document.body.style.backgroundColor = (data.phase === 'night') ? "#1a1a2e" : "#7494C0";
-        });
-
         socket.on('new_chat', (data) => {
             const area = document.getElementById('chat-area');
             area.innerHTML += `<div class="msg-container"><div class="user-name">${data.name}</div><div class="msg-item">${data.msg}</div></div>`;
             area.scrollTop = area.scrollHeight;
         });
 
-        socket.on('system_message', (msg) => {
-            const area = document.getElementById('chat-area');
-            area.innerHTML += `<div class="system">${msg}</div>`;
-            area.scrollTop = area.scrollHeight;
-        });
+        function changePhase(p) { socket.emit('change_phase', {phase: p}); }
     </script>
 </body>
 </html>
