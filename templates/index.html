@@ -30,24 +30,6 @@
         }
         #map-display { width: 100%; height: 100%; object-fit: contain; }
 
-        /* 管理ボタンバー */
-        .admin-bar { 
-            position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 10px; 
-            display: flex; flex-direction: column; gap: 5px; z-index: 1000;
-        }
-        .admin-btn { font-size: 10px; padding: 6px 10px; color: white; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; }
-
-        /* チャットエリア */
-        #chat-area { 
-            flex: 1; overflow-y: auto; 
-            padding: calc(60px + env(safe-area-inset-top)) 15px 10px 15px; 
-            display: flex; flex-direction: column; 
-        }
-        .msg-container { margin-bottom: 12px; }
-        .user-name { font-size: 0.75em; color: white; margin-bottom: 3px; text-shadow: 1px 1px 2px #000; }
-        .msg-item { background: white; color: black; padding: 10px 16px; border-radius: 18px; align-self: flex-start; max-width: 85%; word-wrap: break-word; font-size: 15px; }
-        .system { align-self: center; background: rgba(0,0,0,0.4); color: white; font-size: 0.75em; border-radius: 12px; padding: 4px 14px; margin: 8px 0; }
-
         /* 全画面表示用オーバーレイ */
         #fullscreen-overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
@@ -55,7 +37,7 @@
         }
         #fullscreen-img { width: 90%; max-height: 80%; object-fit: contain; border: 2px solid white; }
         
-        /* バツボタンのスタイル（右上） */
+        /* 全画面時のバツボタン */
         #close-btn {
             position: absolute;
             top: calc(20px + env(safe-area-inset-top));
@@ -75,14 +57,30 @@
             z-index: 6000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
+        #fullscreen-title { position: absolute; bottom: 10%; color: white; font-weight: bold; text-shadow: 1px 1px 2px #000; }
 
-        /* クイックリプライ */
+        /* 管理ボタン（朝/夜） */
+        .admin-bar { 
+            position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 10px; 
+            display: flex; flex-direction: column; gap: 5px; z-index: 1000;
+        }
+        .admin-btn { font-size: 10px; padding: 6px 10px; color: white; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; }
+
+        /* チャットエリア */
+        #chat-area { 
+            flex: 1; overflow-y: auto; 
+            padding: calc(60px + env(safe-area-inset-top)) 15px 10px 15px; 
+            display: flex; flex-direction: column; 
+        }
+        .msg-container { margin-bottom: 12px; }
+        .user-name { font-size: 0.75em; color: white; margin-bottom: 3px; text-shadow: 1px 1px 2px #000; }
+        .msg-item { background: white; color: black; padding: 10px 16px; border-radius: 18px; align-self: flex-start; max-width: 85%; word-wrap: break-word; font-size: 15px; }
+        .system { align-self: center; background: rgba(0,0,0,0.4); color: white; font-size: 0.75em; border-radius: 12px; padding: 4px 14px; margin: 8px 0; }
+
+        /* クイックアクションバー */
         #quick-reply { 
-            display: flex; 
-            background: rgba(255,255,255,0.15); 
-            border-top: 1px solid rgba(255,255,255,0.2);
-            padding: 10px 5px;
-            overflow: hidden; 
+            display: flex; background: rgba(255,255,255,0.15); 
+            border-top: 1px solid rgba(255,255,255,0.2); padding: 10px 5px; overflow: hidden; 
         }
         #fixed-actions { padding-right: 8px; border-right: 1px solid rgba(255,255,255,0.3); margin-right: 8px; flex-shrink: 0; }
         #scroll-actions { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -91,25 +89,57 @@
         .qr-btn { background: white; border-radius: 20px; border: none; padding: 10px 18px; white-space: nowrap; font-size: 13px; font-weight: bold; flex-shrink: 0; }
         .loc-btn { background: #ffeb3b; color: #333; }
 
-        /* 入力エリア */
+        /* チャット入力欄 */
         .controls { padding: 10px; background: #fff; display: flex; gap: 8px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
         #chat-input { flex: 1; padding: 12px 18px; border-radius: 25px; border: 1px solid #ddd; font-size: 16px; outline: none; }
         .send-btn { background: #4CAF50; color: white; border: none; border-radius: 50%; width: 45px; height: 45px; flex-shrink: 0; font-size: 20px; }
     </style>
 </head>
 <body>
-    <div id="login-overlay"><div class="login-box"><h2>Web人狼</h2><input type="text" id="username" placeholder="名前を入力..."><button class="start-btn" onclick="joinGame()">入村する</button></div></div>
-    <div id="fullscreen-overlay" onclick="closeFullscreen()"><button id="close-btn" onclick="closeFullscreen()">×</button><img id="fullscreen-img" src=""><div id="fullscreen-title" style="position: absolute; bottom: 10%; color: white;"></div></div>
+
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2 style="margin: 0 0 20px 0;">Web人狼</h2>
+            <input type="text" id="username" placeholder="名前を入力..." autocomplete="off">
+            <button class="start-btn" onclick="joinGame()">入村する</button>
+        </div>
+    </div>
+
+    <div id="fullscreen-overlay" onclick="closeFullscreen()">
+        <button id="close-btn" onclick="closeFullscreen()">×</button>
+        <img id="fullscreen-img" src="" alt="photo">
+        <div id="fullscreen-title"></div>
+    </div>
+
     <div id="game-container">
-        <div class="floating-map" onclick="showFullMap()"><img id="map-display" src=""></div>
-        <div class="admin-bar"><button class="admin-btn" onclick="changePhase('day')">☀ 朝</button><button class="admin-btn" onclick="changePhase('night')">🌙 夜</button></div>
+        <div class="floating-map" onclick="showFullMap()">
+            <img id="map-display" src="" alt="map">
+        </div>
+
+        <div class="admin-bar">
+            <button class="admin-btn" onclick="changePhase('day')">☀ 朝</button>
+            <button class="admin-btn" onclick="changePhase('night')">🌙 夜</button>
+        </div>
+
         <div id="chat-area"></div>
-        <div id="quick-reply"><div id="scroll-actions"></div></div>
-        <div class="controls"><input type="text" id="chat-input" placeholder="メッセージを入力..."><button class="send-btn" onclick="sendMessage()">➤</button></div>
+
+        <div id="quick-reply">
+            <div id="fixed-actions">
+                <button class="qr-btn loc-btn" onclick="showCurrentLocation()">📍 現在地</button>
+            </div>
+            <div id="scroll-actions"></div>
+        </div>
+
+        <div class="controls">
+            <input type="text" id="chat-input" placeholder="メッセージを入力...">
+            <button class="send-btn" onclick="sendMessage()">➤</button>
+        </div>
     </div>
 
     <script>
         const socket = io();
+        let currentRoomName = "";
+        let currentRoomUrl = "";
         let currentMapUrl = "";
 
         function joinGame() {
@@ -120,34 +150,25 @@
             socket.emit('join_game', {username: name});
         }
 
-        function showFullMap() {
-            document.getElementById('fullscreen-img').src = currentMapUrl;
-            document.getElementById('fullscreen-title').innerText = "全体図";
-            document.getElementById('fullscreen-overlay').style.display = 'flex';
+        // 📍現在地の全画面表示
+        function showCurrentLocation() {
+            const overlay = document.getElementById('fullscreen-overlay');
+            document.getElementById('fullscreen-img').src = currentRoomUrl;
+            document.getElementById('fullscreen-title').innerText = "📍 現在地：" + currentRoomName;
+            overlay.style.display = 'flex';
         }
 
-        function closeFullscreen() { document.getElementById('fullscreen-overlay').style.display = 'none'; }
-        
-        // 移動ボタンを動的に作成
-        socket.on('room_update', (data) => {
-            const container = document.getElementById('scroll-actions');
-            container.innerHTML = ""; // 一旦空にする
-            
-            // サーバーから送られてきた「移動可能先」のリストを回す
-            data.can_move_to.forEach(roomName => {
-                const btn = document.createElement('button');
-                btn.className = "qr-btn";
-                btn.innerText = roomName;
-                btn.onclick = () => socket.emit('move', {room: roomName});
-                container.appendChild(btn);
-            });
-        });
+        // 🗺️全体地図の全画面表示
+        function showFullMap() {
+            const overlay = document.getElementById('fullscreen-overlay');
+            document.getElementById('fullscreen-img').src = currentMapUrl;
+            document.getElementById('fullscreen-title').innerText = "🗺️ 全体図";
+            overlay.style.display = 'flex';
+        }
 
-        socket.on('phase_update', (data) => {
-            currentMapUrl = data.url;
-            document.getElementById('map-display').src = data.url;
-            document.body.style.backgroundColor = (data.phase === 'night') ? "#1a1a2e" : "#7494C0";
-        });
+        function closeFullscreen() {
+            document.getElementById('fullscreen-overlay').style.display = 'none';
+        }
 
         function sendMessage() {
             const input = document.getElementById('chat-input');
@@ -156,13 +177,46 @@
             input.value = "";
         }
 
+        function changePhase(p) { socket.emit('change_phase', {phase: p}); }
+
+        // --- サーバーからのイベント受信 ---
+
+        socket.on('room_update', (data) => {
+            currentRoomName = data.room;
+            currentRoomUrl = data.url;
+            
+            // スクロールエリア（移動先ボタン）の更新
+            const container = document.getElementById('scroll-actions');
+            container.innerHTML = ""; 
+            
+            if (data.can_move_to) {
+                data.can_move_to.forEach(roomName => {
+                    const btn = document.createElement('button');
+                    btn.className = "qr-btn";
+                    btn.innerText = roomName;
+                    btn.onclick = () => socket.emit('move', {room: roomName});
+                    container.appendChild(btn);
+                });
+            }
+        });
+
+        socket.on('phase_update', (data) => {
+            currentMapUrl = data.url;
+            document.getElementById('map-display').src = data.url;
+            document.body.style.backgroundColor = (data.phase === 'night') ? "#1a1a2e" : "#7494C0";
+        });
+
         socket.on('new_chat', (data) => {
             const area = document.getElementById('chat-area');
             area.innerHTML += `<div class="msg-container"><div class="user-name">${data.name}</div><div class="msg-item">${data.msg}</div></div>`;
             area.scrollTop = area.scrollHeight;
         });
 
-        function changePhase(p) { socket.emit('change_phase', {phase: p}); }
+        socket.on('system_message', (msg) => {
+            const area = document.getElementById('chat-area');
+            area.innerHTML += `<div class="system">${msg}</div>`;
+            area.scrollTop = area.scrollHeight;
+        });
     </script>
 </body>
 </html>
