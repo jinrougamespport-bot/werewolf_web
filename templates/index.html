@@ -11,8 +11,17 @@
     <div id="login-overlay">
         <div class="login-box">
             <h2>Web人狼</h2>
+            <p style="font-size: 10px; color: #666;">名前を入力して入村してください</p>
             <input type="text" id="username" placeholder="名前を入力..." autocomplete="off">
             <button class="start-btn" onclick="joinGame()">入村する</button>
+        </div>
+    </div>
+
+    <div id="gm-player-modal" class="modal-overlay" onclick="closePlayerList()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3>プレイヤー状況 (GM用)</h3>
+            <div id="player-list-area"></div>
+            <button class="close-modal-btn" onclick="closePlayerList()">閉じる</button>
         </div>
     </div>
 
@@ -27,9 +36,13 @@
             <img id="map-display" src="">
         </div>
 
-        <div class="admin-bar">
-            <button class="admin-btn" onclick="changePhase('day')">☀ 朝</button>
-            <button class="admin-btn" onclick="changePhase('night')">🌙 夜</button>
+        <div id="gm-console" style="display: none;">
+            <div class="admin-bar">
+                <span class="gm-label">GM Menu</span>
+                <button class="admin-btn" onclick="changePhase('day')">☀ 朝</button>
+                <button class="admin-btn" onclick="changePhase('night')">🌙 夜</button>
+                <button class="admin-btn" onclick="openPlayerList()">👥 状況</button>
+            </div>
         </div>
 
         <div id="role-display">役職: 確認中...</div>
