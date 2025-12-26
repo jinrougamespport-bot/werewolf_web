@@ -9,8 +9,8 @@ let canMoveList = [];
 
 const ROLE_IMAGES = {
     "村人": "/static/村人テキスト付.png",
-    "占い師": "/static/村人テキスト付.png",
-    "守り人": "/static/村人テキスト付.png"
+    "占い師": "/static/占い師テキスト付.png",
+    "守り人": "/static/守り人テキスト付.png"
 };
 
 function joinGame() {
