@@ -8,10 +8,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-
     <div id="login-overlay">
         <div class="login-box">
-            <h2 style="margin: 0 0 20px 0;">Web人狼</h2>
+            <h2>Web人狼</h2>
             <input type="text" id="username" placeholder="名前を入力..." autocomplete="off">
             <button class="start-btn" onclick="joinGame()">入村する</button>
         </div>
@@ -19,19 +18,21 @@
 
     <div id="fullscreen-overlay" onclick="closeFullscreen()">
         <button id="close-btn" onclick="closeFullscreen()">×</button>
-        <img id="fullscreen-img" src="" alt="photo">
+        <img id="fullscreen-img" src="">
         <div id="fullscreen-title"></div>
     </div>
 
     <div id="game-container">
         <div class="floating-map" onclick="showFullMap()">
-            <img id="map-display" src="" alt="map">
+            <img id="map-display" src="">
         </div>
 
         <div class="admin-bar">
             <button class="admin-btn" onclick="changePhase('day')">☀ 朝</button>
             <button class="admin-btn" onclick="changePhase('night')">🌙 夜</button>
         </div>
+
+        <div id="role-display">役職: 確認中...</div>
 
         <div id="chat-area"></div>
 
@@ -47,7 +48,6 @@
             <button class="send-btn" onclick="sendMessage()">➤</button>
         </div>
     </div>
-
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
