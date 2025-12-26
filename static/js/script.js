@@ -7,6 +7,13 @@ let isGM = false;
 let currentPhase = "day";
 let canMoveList = [];
 
+// 役職画像のパス設定
+const ROLE_IMAGES = {
+    "村人": "/static/村人テキスト付.png",
+    "占い師": "/static/占い師テキスト付.png", // 必要に応じて画像名を分けてください
+    "守り人": "/static/守り人テキスト付.png"  // 同上
+};
+
 function joinGame() {
     const name = document.getElementById('username').value.trim();
     if(!name) return;
@@ -15,19 +22,26 @@ function joinGame() {
     socket.emit('join_game', {username: name});
 }
 
-// 役職とGM判定の受信
 socket.on('role_assigned', (data) => {
     myRole = data.role;
     isGM = data.is_gm;
-    document.getElementById('role-display').innerText = "役職: " + myRole;
     
-    // GMなら管理ツールを表示
+    const roleCard = document.getElementById('role-card');
+    const roleImg = document.getElementById('role-img');
+
+    // 「人狼」でも「GM」でもない場合のみ画像を表示
+    if (!isGM && myRole !== "人狼") {
+        roleCard.style.display = 'block';
+        roleImg.src = ROLE_IMAGES[myRole] || "/static/村人テキスト付.png";
+    } else {
+        roleCard.style.display = 'none';
+    }
+
     if (isGM) {
         document.getElementById('gm-console').style.display = 'block';
     }
 });
 
-// GM用：プレイヤーリストの更新
 socket.on('update_player_list', (players) => {
     const listArea = document.getElementById('player-list-area');
     if (!listArea) return;
@@ -72,7 +86,6 @@ function refreshButtons() {
     const container = document.getElementById('scroll-actions');
     container.innerHTML = "";
 
-    // 夜かつGMではない場合、スキルボタンを表示
     if (currentPhase === 'night' && !isGM) {
         if (myRole === "人狼") addSkillBtn("襲撃する");
         else if (myRole === "占い師") addSkillBtn("占う");
