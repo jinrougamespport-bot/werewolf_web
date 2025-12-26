@@ -1,3 +1,4 @@
+import sys
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import os
@@ -5,6 +6,8 @@ import os
 app = Flask(__name__)
 # Renderでの動作を安定させるための設定
 socketio = SocketIO(app, cors_allowed_origins="*")
+sys.stderr.reconfigure(line_buffering=True)
+print("--- サーバーを起動しています ---", flush=True)
 
 players = {}
 game_state = {"phase": "day"}
