@@ -3,7 +3,6 @@ import os
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
-# ログ出力設定
 try:
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
@@ -16,9 +15,9 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 players = {}
 game_state = {"phase": "day"}
 
-# 移動ルール（ご提示いただいたもの）
+# 移動ルール
 ROOM_MOVES = {
-    "待機室": ["広場"], # 待機室からは広場へ
+    "待機室": ["広場"],
     "風車": ["広場"],
     "広場": ["風車", "配電室", "貯水タンク", "Mさんの家", "Aさんの家", "畑", "村長の家", "Sさんの家", "パン屋"],
     "Mさんの家": ["広場", "Aさんの家"],
@@ -31,7 +30,6 @@ ROOM_MOVES = {
     "パン屋": ["Sさんの家", "広場"]
 }
 
-# 画像データ
 MAP_URLS = {
     "day": "/static/マップ画像昼テキスト付.png",
     "night": "/static/マップ画像夜テキスト付.png"
@@ -48,7 +46,7 @@ ROOM_DATA = {
     "配電室": "/static/配電室テキスト付.png",
     "畑": "/static/畑テキスト付.png",
     "風車": "/static/風車テキスト付.png",
-    "村長の家": "/static/待機室テキスト付.png" # 画像がない場合は待機室などで代用
+    "村長の家": "/static/待機室テキスト付.png"
 }
 
 @app.route('/')
@@ -60,9 +58,7 @@ def handle_join(data):
     username = data.get('username', '名無し')
     players[request.sid] = {"name": username, "room": "待機室"}
     join_room("待機室")
-    # 初期情報送信
     emit('phase_update', {"phase": game_state["phase"], "url": MAP_URLS[game_state["phase"]]})
-    # 移動可能先を添えて送信
     emit('room_update', {
         "room": "待機室", 
         "url": ROOM_DATA["待機室"],
@@ -74,9 +70,7 @@ def handle_move(data):
     new_room = data.get('room')
     user = players.get(request.sid)
     if not user: return
-    
     current_room = user['room']
-    # 移動可能リストに入っているかチェック
     if new_room in ROOM_MOVES.get(current_room, []):
         leave_room(current_room)
         join_room(new_room)
