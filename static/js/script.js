@@ -2,6 +2,9 @@ const socket = io();
 let currentRoomName = "";
 let currentRoomUrl = "";
 let currentMapUrl = "";
+let myRole = "";
+let currentPhase = "day";
+let canMoveList = [];
 
 function joinGame() {
     const name = document.getElementById('username').value.trim();
@@ -10,6 +13,12 @@ function joinGame() {
     document.getElementById('game-container').style.display = 'flex';
     socket.emit('join_game', {username: name});
 }
+
+// 役職の受信
+socket.on('role_assigned', (data) => {
+    myRole = data.role;
+    document.getElementById('role-display').innerText = "役職: " + myRole;
+});
 
 function showCurrentLocation() {
     const overlay = document.getElementById('fullscreen-overlay');
@@ -25,9 +34,7 @@ function showFullMap() {
     overlay.style.display = 'flex';
 }
 
-function closeFullscreen() {
-    document.getElementById('fullscreen-overlay').style.display = 'none';
-}
+function closeFullscreen() { document.getElementById('fullscreen-overlay').style.display = 'none'; }
 
 function sendMessage() {
     const input = document.getElementById('chat-input');
@@ -38,27 +45,50 @@ function sendMessage() {
 
 function changePhase(p) { socket.emit('change_phase', {phase: p}); }
 
-// 受信処理
+// ボタンエリアを更新する統合関数
+function refreshButtons() {
+    const container = document.getElementById('scroll-actions');
+    container.innerHTML = "";
+
+    // 1. 夜フェーズならスキルボタンを最初に出す
+    if (currentPhase === 'night') {
+        if (myRole === "人狼") addSkillBtn("襲撃する");
+        else if (myRole === "占い師") addSkillBtn("占う");
+        else if (myRole === "守り人") addSkillBtn("守る");
+    }
+
+    // 2. 移動ボタンを出す
+    canMoveList.forEach(roomName => {
+        const btn = document.createElement('button');
+        btn.className = "qr-btn";
+        btn.innerText = roomName;
+        btn.onclick = () => socket.emit('move', {room: roomName});
+        container.appendChild(btn);
+    });
+}
+
+function addSkillBtn(label) {
+    const container = document.getElementById('scroll-actions');
+    const btn = document.createElement('button');
+    btn.className = "qr-btn skill-btn";
+    btn.innerText = "✨ " + label;
+    btn.onclick = () => alert(label + "対象を選んでください（開発中）");
+    container.appendChild(btn);
+}
+
 socket.on('room_update', (data) => {
     currentRoomName = data.room;
     currentRoomUrl = data.url;
-    const container = document.getElementById('scroll-actions');
-    container.innerHTML = ""; 
-    if (data.can_move_to) {
-        data.can_move_to.forEach(roomName => {
-            const btn = document.createElement('button');
-            btn.className = "qr-btn";
-            btn.innerText = roomName;
-            btn.onclick = () => socket.emit('move', {room: roomName});
-            container.appendChild(btn);
-        });
-    }
+    canMoveList = data.can_move_to || [];
+    refreshButtons();
 });
 
 socket.on('phase_update', (data) => {
+    currentPhase = data.phase;
     currentMapUrl = data.url;
     document.getElementById('map-display').src = data.url;
     document.body.style.backgroundColor = (data.phase === 'night') ? "#1a1a2e" : "#7494C0";
+    refreshButtons();
 });
 
 socket.on('new_chat', (data) => {
