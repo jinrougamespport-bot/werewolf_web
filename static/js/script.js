@@ -3,6 +3,7 @@ let currentRoomName = "";
 let currentRoomUrl = "";
 let currentMapUrl = "";
 let myRole = "";
+let isGM = false;
 let currentPhase = "day";
 let canMoveList = [];
 
@@ -14,11 +15,33 @@ function joinGame() {
     socket.emit('join_game', {username: name});
 }
 
-// 役職の受信
+// 役職とGM判定の受信
 socket.on('role_assigned', (data) => {
     myRole = data.role;
+    isGM = data.is_gm;
     document.getElementById('role-display').innerText = "役職: " + myRole;
+    
+    // GMなら管理ツールを表示
+    if (isGM) {
+        document.getElementById('gm-console').style.display = 'block';
+    }
 });
+
+// GM用：プレイヤーリストの更新
+socket.on('update_player_list', (players) => {
+    const listArea = document.getElementById('player-list-area');
+    if (!listArea) return;
+    listArea.innerHTML = players.map(p => `
+        <div style="border-bottom:1px solid #444; padding: 8px 0;">
+            <b>${p.name}</b> <br>
+            <span style="font-size: 0.8em; color: gold;">役職: ${p.role}</span> | 
+            <span style="font-size: 0.8em;">${p.alive ? '❤️生存' : '💀死亡'}</span>
+        </div>
+    `).join('');
+});
+
+function openPlayerList() { document.getElementById('gm-player-modal').style.display = 'flex'; }
+function closePlayerList() { document.getElementById('gm-player-modal').style.display = 'none'; }
 
 function showCurrentLocation() {
     const overlay = document.getElementById('fullscreen-overlay');
@@ -45,19 +68,17 @@ function sendMessage() {
 
 function changePhase(p) { socket.emit('change_phase', {phase: p}); }
 
-// ボタンエリアを更新する統合関数
 function refreshButtons() {
     const container = document.getElementById('scroll-actions');
     container.innerHTML = "";
 
-    // 1. 夜フェーズならスキルボタンを最初に出す
-    if (currentPhase === 'night') {
+    // 夜かつGMではない場合、スキルボタンを表示
+    if (currentPhase === 'night' && !isGM) {
         if (myRole === "人狼") addSkillBtn("襲撃する");
         else if (myRole === "占い師") addSkillBtn("占う");
         else if (myRole === "守り人") addSkillBtn("守る");
     }
 
-    // 2. 移動ボタンを出す
     canMoveList.forEach(roomName => {
         const btn = document.createElement('button');
         btn.className = "qr-btn";
@@ -72,7 +93,7 @@ function addSkillBtn(label) {
     const btn = document.createElement('button');
     btn.className = "qr-btn skill-btn";
     btn.innerText = "✨ " + label;
-    btn.onclick = () => alert(label + "対象を選んでください（開発中）");
+    btn.onclick = () => alert(label + "対象を選んでください");
     container.appendChild(btn);
 }
 
