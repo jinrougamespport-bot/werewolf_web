@@ -7,11 +7,10 @@ let isGM = false;
 let currentPhase = "day";
 let canMoveList = [];
 
-// 役職画像のパス設定
 const ROLE_IMAGES = {
     "村人": "/static/村人テキスト付.png",
-    "占い師": "/static/占い師テキスト付.png", // 必要に応じて画像名を分けてください
-    "守り人": "/static/守り人テキスト付.png"  // 同上
+    "占い師": "/static/村人テキスト付.png",
+    "守り人": "/static/村人テキスト付.png"
 };
 
 function joinGame() {
@@ -29,7 +28,6 @@ socket.on('role_assigned', (data) => {
     const roleCard = document.getElementById('role-card');
     const roleImg = document.getElementById('role-img');
 
-    // 「人狼」でも「GM」でもない場合のみ画像を表示
     if (!isGM && myRole !== "人狼") {
         roleCard.style.display = 'block';
         roleImg.src = ROLE_IMAGES[myRole] || "/static/村人テキスト付.png";
@@ -42,25 +40,10 @@ socket.on('role_assigned', (data) => {
     }
 });
 
-socket.on('update_player_list', (players) => {
-    const listArea = document.getElementById('player-list-area');
-    if (!listArea) return;
-    listArea.innerHTML = players.map(p => `
-        <div style="border-bottom:1px solid #444; padding: 8px 0;">
-            <b>${p.name}</b> <br>
-            <span style="font-size: 0.8em; color: gold;">役職: ${p.role}</span> | 
-            <span style="font-size: 0.8em;">${p.alive ? '❤️生存' : '💀死亡'}</span>
-        </div>
-    `).join('');
-});
-
-function openPlayerList() { document.getElementById('gm-player-modal').style.display = 'flex'; }
-function closePlayerList() { document.getElementById('gm-player-modal').style.display = 'none'; }
-
-function showCurrentLocation() {
+function showRoleFullscreen() {
     const overlay = document.getElementById('fullscreen-overlay');
-    document.getElementById('fullscreen-img').src = currentRoomUrl;
-    document.getElementById('fullscreen-title').innerText = "📍 現在地：" + currentRoomName;
+    document.getElementById('fullscreen-img').src = document.getElementById('role-img').src;
+    document.getElementById('fullscreen-title').innerText = "あなたの役職: " + myRole;
     overlay.style.display = 'flex';
 }
 
@@ -68,6 +51,13 @@ function showFullMap() {
     const overlay = document.getElementById('fullscreen-overlay');
     document.getElementById('fullscreen-img').src = currentMapUrl;
     document.getElementById('fullscreen-title').innerText = "🗺️ 全体図";
+    overlay.style.display = 'flex';
+}
+
+function showCurrentLocation() {
+    const overlay = document.getElementById('fullscreen-overlay');
+    document.getElementById('fullscreen-img').src = currentRoomUrl;
+    document.getElementById('fullscreen-title').innerText = "📍 現在地：" + currentRoomName;
     overlay.style.display = 'flex';
 }
 
@@ -85,13 +75,11 @@ function changePhase(p) { socket.emit('change_phase', {phase: p}); }
 function refreshButtons() {
     const container = document.getElementById('scroll-actions');
     container.innerHTML = "";
-
     if (currentPhase === 'night' && !isGM) {
         if (myRole === "人狼") addSkillBtn("襲撃する");
         else if (myRole === "占い師") addSkillBtn("占う");
         else if (myRole === "守り人") addSkillBtn("守る");
     }
-
     canMoveList.forEach(roomName => {
         const btn = document.createElement('button');
         btn.className = "qr-btn";
@@ -130,3 +118,13 @@ socket.on('new_chat', (data) => {
     area.innerHTML += `<div class="msg-container"><div class="user-name">${data.name}</div><div class="msg-item">${data.msg}</div></div>`;
     area.scrollTop = area.scrollHeight;
 });
+
+socket.on('update_player_list', (players) => {
+    const listArea = document.getElementById('player-list-area');
+    if (listArea) {
+        listArea.innerHTML = players.map(p => `<div style="padding:5px; border-bottom:1px solid #444;">${p.name}: ${p.role} (${p.alive ? '生' : '死'})</div>`).join('');
+    }
+});
+
+function openPlayerList() { document.getElementById('gm-player-modal').style.display = 'flex'; }
+function closePlayerList() { document.getElementById('gm-player-modal').style.display = 'none'; }
