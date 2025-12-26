@@ -3,7 +3,7 @@ import os
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
-# Renderでのログ表示を安定させる設定
+# ログ出力設定
 try:
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
@@ -16,6 +16,22 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 players = {}
 game_state = {"phase": "day"}
 
+# 移動ルール（ご提示いただいたもの）
+ROOM_MOVES = {
+    "待機室": ["広場"], # 待機室からは広場へ
+    "風車": ["広場"],
+    "広場": ["風車", "配電室", "貯水タンク", "Mさんの家", "Aさんの家", "畑", "村長の家", "Sさんの家", "パン屋"],
+    "Mさんの家": ["広場", "Aさんの家"],
+    "Aさんの家": ["Mさんの家", "広場"],
+    "Sさんの家": ["広場", "パン屋"],
+    "村長の家": ["貯水タンク", "畑", "広場"],
+    "配電室": ["広場"],
+    "貯水タンク": ["広場", "畑", "村長の家"],
+    "畑": ["貯水タンク", "村長の家", "広場"],
+    "パン屋": ["Sさんの家", "広場"]
+}
+
+# 画像データ
 MAP_URLS = {
     "day": "/static/マップ画像昼テキスト付.png",
     "night": "/static/マップ画像夜テキスト付.png"
@@ -24,14 +40,15 @@ MAP_URLS = {
 ROOM_DATA = {
     "待機室": "/static/待機室テキスト付.png",
     "広場": "/static/広場テキスト付.png",
-    "Aの家": "/static/Aの家テキスト付.png",
-    "Mの家": "/static/Mの家テキスト付.png",
-    "Sの家": "/static/Sの家テキスト付.png",
+    "Aさんの家": "/static/Aさんの家テキスト付.png",
+    "Mさんの家": "/static/Mさんの家テキスト付.png",
+    "Sさんの家": "/static/Sさんの家テキスト付.png",
     "パン屋": "/static/パン屋テキスト付.png",
     "貯水タンク": "/static/貯水タンクテキスト付.png",
-    "電気室": "/static/電気室テキスト付.png",
+    "配電室": "/static/配電室テキスト付.png",
     "畑": "/static/畑テキスト付.png",
-    "風車": "/static/風車テキスト付.png"
+    "風車": "/static/風車テキスト付.png",
+    "村長の家": "/static/待機室テキスト付.png" # 画像がない場合は待機室などで代用
 }
 
 @app.route('/')
@@ -43,20 +60,32 @@ def handle_join(data):
     username = data.get('username', '名無し')
     players[request.sid] = {"name": username, "room": "待機室"}
     join_room("待機室")
+    # 初期情報送信
     emit('phase_update', {"phase": game_state["phase"], "url": MAP_URLS[game_state["phase"]]})
-    emit('room_update', {"room": "待機室", "url": ROOM_DATA["待機室"]})
+    # 移動可能先を添えて送信
+    emit('room_update', {
+        "room": "待機室", 
+        "url": ROOM_DATA["待機室"],
+        "can_move_to": ROOM_MOVES.get("待機室", [])
+    })
 
 @socketio.on('move')
 def handle_move(data):
     new_room = data.get('room')
-    if new_room not in ROOM_DATA: return
     user = players.get(request.sid)
     if not user: return
-    old_room = user['room']
-    leave_room(old_room)
-    join_room(new_room)
-    user['room'] = new_room
-    emit('room_update', {"room": new_room, "url": ROOM_DATA[new_room]})
+    
+    current_room = user['room']
+    # 移動可能リストに入っているかチェック
+    if new_room in ROOM_MOVES.get(current_room, []):
+        leave_room(current_room)
+        join_room(new_room)
+        user['room'] = new_room
+        emit('room_update', {
+            "room": new_room, 
+            "url": ROOM_DATA.get(new_room, "/static/待機室テキスト付.png"),
+            "can_move_to": ROOM_MOVES.get(new_room, [])
+        })
 
 @socketio.on('chat_message')
 def handle_chat(data):
