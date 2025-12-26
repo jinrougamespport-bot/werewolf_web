@@ -50,7 +50,6 @@ ROOM_MOVES = {
 }
 
 def emit_player_list():
-    """GM用に全プレイヤーの役職と状態を送信"""
     plist = [{"name": p["name"], "role": p["role"], "alive": p["is_alive"]} for p in players.values()]
     socketio.emit('update_player_list', plist)
 
@@ -61,8 +60,6 @@ def index():
 @socketio.on('join_game')
 def handle_join(data):
     username = data.get('username', '名無し')
-    
-    # GM判定（名前が gm_jinrouGM の場合）
     is_gm = (username == "gm_jinrouGM")
     
     if is_gm:
@@ -84,13 +81,7 @@ def handle_join(data):
     join_room("待機室")
     emit('role_assigned', {"role": assigned_role, "is_gm": is_gm})
     emit('phase_update', {"phase": game_state["phase"], "url": MAP_URLS[game_state["phase"]]})
-    
-    emit('room_update', {
-        "room": "待機室", 
-        "url": ROOM_DATA["待機室"],
-        "can_move_to": ROOM_MOVES.get("待機室", [])
-    })
-    
+    emit('room_update', {"room": "待機室", "url": ROOM_DATA["待機室"], "can_move_to": ROOM_MOVES.get("待機室", [])})
     emit_player_list()
 
 @socketio.on('move')
@@ -117,7 +108,6 @@ def handle_chat(data):
 
 @socketio.on('change_phase')
 def handle_phase(data):
-    # 本来はここで送信者がGMかチェックするとより安全です
     new_phase = data.get('phase')
     game_state["phase"] = new_phase
     emit('phase_update', {"phase": new_phase, "url": MAP_URLS[new_phase]}, broadcast=True)
