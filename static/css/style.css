@@ -5,11 +5,16 @@ html, body {
     transition: background 3s ease-in-out; 
 }
 
-#login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+/* ログイン画面 */
+#login-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center; z-index: 9999; 
+}
 .login-box { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 80%; max-width: 300px; }
 #username { width: 90%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
 .start-btn { width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 18px; font-weight: bold; }
 
+/* ゲームコンテナ */
 #game-container { display: none; flex: 1; flex-direction: column; height: 100%; position: relative; }
 
 /* 役職カード (左上に配置) */
@@ -21,14 +26,44 @@ html, body {
 }
 #role-img { width: 100%; height: 100%; object-fit: contain; }
 
-/* 地図 (右上に配置) */
+/* 地図 (右上に配置) + 現在地の赤い点 */
 .floating-map { 
-    position: absolute; top: calc(10px + env(safe-area-inset-top)); right: 10px; 
-    width: 100px; height: 100px; z-index: 1000;
-    background: rgba(0,0,0,0.5); border: 2px solid white; border-radius: 8px; overflow: hidden;
-    cursor: pointer;
+    position: absolute; /* 画面に対する位置 */
+    top: 10px; right: 10px; width: 100px; height: 100px; 
+    z-index: 1000; background: rgba(0,0,0,0.5); 
+    border: 2px solid white; border-radius: 8px; 
+    overflow: hidden; cursor: pointer;
 }
 #map-display { width: 100%; height: 100%; object-fit: contain; }
+
+#location-dot { 
+    position: absolute; /* 地図画像に対する位置 */
+    width: 12px; height: 12px; background: #ff0000; 
+    border-radius: 50%; border: 2px solid white; 
+    z-index: 1001; display: none; /* 最初は消しておく */
+    box-shadow: 0 0 8px #ff0000;
+    transform: translate(-50%, -50%); /* 点の中心を座標に合わせる */
+    animation: blink 1s infinite;
+}
+
+#fullscreen-dot { 
+    position: absolute; 
+    width: 20px; 
+    height: 20px; 
+    background: #ff0000; 
+    border-radius: 50%; 
+    border: 3px solid white; 
+    display: none; 
+    z-index: 5001; 
+    box-shadow: 0 0 15px #ff0000; 
+    transform: translate(-50%, -50%); /* 中心を座標に合わせる */
+    animation: blink 1s infinite; 
+}
+
+@keyframes blink { 
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.5; } 
+}
 
 /* GMコンソール (中央に寄せる) */
 #gm-console { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 100px; z-index: 1001; }
@@ -36,29 +71,74 @@ html, body {
 .gm-label { color: white; font-size: 9px; font-weight: bold; text-align: center; }
 .admin-btn { font-size: 10px; padding: 4px 6px; color: white; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; }
 
-/* 全画面オーバーレイ */
-#fullscreen-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; justify-content: center; align-items: center; z-index: 5000; }
-#fullscreen-img { width: 90%; max-height: 80%; object-fit: contain; border: 2px solid white; }
-#close-btn { position: absolute; top: calc(20px + env(safe-area-inset-top)); right: 20px; width: 44px; height: 44px; background: white; color: black; font-size: 30px; border: none; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
-#fullscreen-title { position: absolute; bottom: 10%; color: white; font-weight: bold; text-shadow: 1px 1px 2px #000; }
-
-/* チャット */
-#chat-area { flex: 1; overflow-y: auto; padding: calc(100px + env(safe-area-inset-top)) 15px 10px 15px; display: flex; flex-direction: column; }
+/* チャットエリア */
+#chat-area { 
+    flex: 1; overflow-y: auto; 
+    padding: calc(110px + env(safe-area-inset-top)) 15px 10px 15px; 
+    display: flex; flex-direction: column; 
+}
 .msg-container { margin-bottom: 12px; }
 .user-name { font-size: 0.75em; color: white; margin-bottom: 3px; }
-.msg-item { background: white; color: black; padding: 10px 16px; border-radius: 18px; align-self: flex-start; max-width: 85%; font-size: 15px; }
+.msg-item { 
+    background: white; color: black; padding: 10px 16px; border-radius: 18px; 
+    align-self: flex-start; max-width: 85%; font-size: 15px;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+}
 
-/* ボタン類 */
-#quick-reply { display: flex; background: rgba(255,255,255,0.15); border-top: 1px solid rgba(255,255,255,0.2); padding: 10px 5px; }
+/* ボタン・クイックリプライ */
+#quick-reply { 
+    display: flex; background: rgba(255,255,255,0.15); 
+    border-top: 1px solid rgba(255,255,255,0.2); padding: 10px 5px; 
+    overflow-x: auto;
+}
 #fixed-actions { padding-right: 8px; border-right: 1px solid rgba(255,255,255,0.3); margin-right: 8px; flex-shrink: 0; }
-#scroll-actions { display: flex; gap: 8px; overflow-x: auto; }
-.qr-btn { background: white; border-radius: 20px; border: none; padding: 10px 18px; white-space: nowrap; font-size: 13px; font-weight: bold; flex-shrink: 0; }
+#scroll-actions { display: flex; gap: 8px; }
+.qr-btn { 
+    background: white; border-radius: 20px; border: none; padding: 10px 18px; 
+    white-space: nowrap; font-size: 13px; font-weight: bold; flex-shrink: 0; 
+}
 .loc-btn { background: #ffeb3b; color: #333; }
 .skill-btn { background: #ff4081; color: white; }
 
-.controls { padding: 10px; background: #fff; display: flex; gap: 8px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+/* 入力コントロール */
+.controls { 
+    padding: 10px; background: #fff; display: flex; gap: 8px; 
+    padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
+}
 #chat-input { flex: 1; padding: 12px 18px; border-radius: 25px; border: 1px solid #ddd; font-size: 16px; }
-.send-btn { background: #4CAF50; color: white; border: none; border-radius: 50%; width: 45px; height: 45px; font-size: 20px; }
+.send-btn { 
+    background: #4CAF50; color: white; border: none; border-radius: 50%; 
+    width: 45px; height: 45px; font-size: 20px; display: flex; justify-content: center; align-items: center;
+}
 
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 8000; }
+/* 全画面・モーダル系 */
+#fullscreen-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.95); display: none; 
+    flex-direction: column; /* タイトルを下にするため */
+    justify-content: center; align-items: center; z-index: 5000;
+}
+
+
+#fullscreen-img {
+    max-width: 90vw; /* 画面からはみ出さないよう調整 */
+    max-height: 80vh; 
+    object-fit: contain; 
+    border: 2px solid white;
+}
+#close-btn { 
+    position: absolute; top: calc(20px + env(safe-area-inset-top)); right: 20px; 
+    width: 44px; height: 44px; background: white; color: black; font-size: 30px; 
+    border: none; border-radius: 50%; display: flex; justify-content: center; align-items: center; 
+}
+#fullscreen-title {
+    position: relative; /* 固定位置から相対位置に変更 */
+    bottom: 0; margin-top: 15px; 
+    color: white; font-weight: bold; text-shadow: 1px 1px 2px #000;
+}
+
+.modal-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 8000; 
+}
 .modal-content { background: #222; color: white; padding: 20px; border-radius: 12px; width: 85%; max-height: 70%; overflow-y: auto; }
