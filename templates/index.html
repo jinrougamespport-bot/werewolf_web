@@ -6,6 +6,7 @@
     <title>Web人狼</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
 </head>
 <body>
     <div id="login-overlay">
@@ -25,19 +26,22 @@
     </div>
 
     <div id="fullscreen-overlay" onclick="closeFullscreen()">
-        <button id="close-btn" onclick="closeFullscreen()">×</button>
-        <img id="fullscreen-img" src="">
-        <div id="fullscreen-title"></div>
+    <button id="close-btn">×</button>
+    <div style="position: relative; display: inline-block;">
+        <img id="fullscreen-img">
+        <div id="fullscreen-dot"></div> </div>
+    <div id="fullscreen-title"></div>
     </div>
 
     <div id="game-container">
         <div id="role-card" onclick="showRoleFullscreen()" style="display: none;">
-            <img id="role-img" src="" alt="role">
+            <img id="role-img">
         </div>
-
-        <div class="floating-map" onclick="showFullMap()">
-            <img id="map-display" src="">
-        </div>
+    
+    <div class="floating-map" onclick="showFullMap()">
+        <img id="map-display">
+        <div id="location-dot"></div>
+    </div>
 
         <div id="gm-console" style="display: none;">
             <div class="admin-bar">
