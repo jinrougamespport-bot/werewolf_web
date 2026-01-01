@@ -37,7 +37,8 @@ const ROOM_COORDINATES = {
 const ROLE_IMAGES = {
     "村人": "/static/村人テキスト付.png",
     "占い師": "/static/占い師テキスト付.png",
-    "守り人": "/static/守り人テキスト付.png"
+    "守り人": "/static/守り人テキスト付.png",
+    "人狼": "/static/人狼テキスト付.png"
 };
 
 // 入村処理
@@ -49,7 +50,7 @@ function joinGame() {
     socket.emit('join_game', { username: name });
 }
 
-// 役職割当
+// 役職割当 (修正版)
 socket.on('role_assigned', (data) => {
     myRole = data.role;
     isGM = data.is_gm;
@@ -57,10 +58,12 @@ socket.on('role_assigned', (data) => {
     const roleCard = document.getElementById('role-card');
     const roleImg = document.getElementById('role-img');
 
-    // GMでなく、かつ人狼でもない場合のみ役職画像を表示
-    if (!isGM && myRole !== "人狼") {
+    // GM以外は全員、役職画像を表示する設定に変更
+    if (!isGM) {
         roleCard.style.display = 'block';
-        roleImg.src = ROLE_IMAGES[myRole] || "/static/村人テキスト付.png";
+        // 役職に応じた画像を設定。リストにない場合は「村人」を予備として出す
+        const imagePath = ROLE_IMAGES[myRole] || "/static/村人テキスト付.png";
+        roleImg.src = imagePath;
     } else {
         roleCard.style.display = 'none';
     }
@@ -114,8 +117,19 @@ socket.on('phase_update', (data) => {
     currentMapUrl = data.url;
     document.getElementById('map-display').src = data.url;
     document.body.style.backgroundColor = (data.phase === 'night') ? "#1a1a2e" : "#7494C0";
+    
+    // チャット欄に通知を出す
+    const area = document.getElementById('chat-area');
+    const message = (data.phase === 'day') ? "☀️ 朝になりました。" : "🌙 夜になりました。";
+    area.innerHTML += `
+        <div class="msg-container">
+            <div class="msg-item" style="background: #ffeb3b; font-weight: bold;">${message}</div>
+        </div>`;
+    area.scrollTop = area.scrollHeight;
+
     refreshButtons();
 });
+
 
 // ボタン類の再描画
 function refreshButtons() {
@@ -142,16 +156,17 @@ function refreshButtons() {
     }
 }
 
-// スキルボタン作成
+// スキルボタン作成 (script.js の addSkillBtn 関数を差し替え)
 function addSkillBtn(label) {
     const container = document.getElementById('scroll-actions');
     const btn = document.createElement('button');
     btn.className = "qr-btn skill-btn";
     btn.innerText = "✨ " + label;
     btn.onclick = () => {
-        // 自分以外で生きているプレイヤーを抽出
         const myName = document.getElementById('username').value;
-        const targets = playerList.filter(p => p.name !== myName && p.alive);
+        
+        // 【重要】自分以外、かつ生存、かつ「GMではない」プレイヤーのみをリストアップ
+        const targets = playerList.filter(p => p.name !== myName && p.alive && !p.is_gm);
 
         if (targets.length === 0) {
             alert("対象となるプレイヤーがいません");
@@ -161,6 +176,7 @@ function addSkillBtn(label) {
         const namesString = targets.map(p => p.name).join(", ");
         const choice = prompt(`${label}対象の名前を入力してください:\n【対象者】\n${namesString}`);
 
+        // 入力された名前が対象リストに存在するかチェック
         if (choice && targets.find(p => p.name === choice)) {
             socket.emit('use_skill', { skill: label, target: choice });
             alert(choice + " にスキルを送信しました。");
