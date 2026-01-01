@@ -255,3 +255,35 @@ function showFull(src, title) {
         fullDot.style.visibility = title.includes("全体図") ? "visible" : "hidden";
     }
 }
+
+socket.on('player_died', (data) => {
+    // 画面全体を覆うゲームオーバー画面を動的に作成
+    const deadOverlay = document.createElement('div');
+    deadOverlay.style.position = 'fixed';
+    deadOverlay.style.top = '0';
+    deadOverlay.style.left = '0';
+    deadOverlay.style.width = '100%';
+    deadOverlay.style.height = '100%';
+    deadOverlay.style.background = 'rgba(139, 0, 0, 0.9)'; // 暗い赤
+    deadOverlay.style.color = 'white';
+    deadOverlay.style.display = 'flex';
+    deadOverlay.style.flexDirection = 'column';
+    deadOverlay.style.justifyContent = 'center';
+    deadOverlay.style.alignItems = 'center';
+    deadOverlay.style.zIndex = '10000';
+    deadOverlay.style.fontSize = '40px';
+    deadOverlay.style.fontWeight = 'bold';
+    
+    deadOverlay.innerHTML = `
+        <div>GAME OVER</div>
+        <div style="font-size: 18px; margin-top: 20px;">${data.msg}</div>
+        <div style="font-size: 14px; margin-top: 40px; color: #ccc;">(観戦モード)</div>
+    `;
+    
+    document.body.appendChild(deadOverlay);
+
+    // 操作不能にするための処理
+    document.getElementById('chat-input').disabled = true;
+    document.getElementById('quick-reply').style.pointerEvents = 'none';
+    document.getElementById('quick-reply').style.opacity = '0.5';
+});
