@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Web人狼</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+</head>
+<body>
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>Web人狼</h2>
+            <input type="text" id="username" placeholder="名前を入力..." autocomplete="off">
+            <button class="start-btn" onclick="joinGame()">入村する</button>
+        </div>
+    </div>
+
+    <div id="gm-player-modal" class="modal-overlay" onclick="closePlayerList()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3>プレイヤー状況 (GM用)</h3>
+            <div id="player-list-area"></div>
+            <button class="close-modal-btn" onclick="closePlayerList()">閉じる</button>
+        </div>
+    </div>
+
+    <div id="fullscreen-overlay" onclick="closeFullscreen()">
+        <button id="close-btn">×</button>
+        <div style="position: relative; display: inline-block;">
+            <img id="fullscreen-img">
+            <div id="fullscreen-dot"></div> </div>
+        <div id="fullscreen-title"></div>
+    </div>
+
+    <div id="game-container">
+        <div id="role-card" onclick="showRoleFullscreen()" style="display: none;">
+            <img id="role-img">
+        </div>
+    
+        <div class="floating-map" onclick="showFullMap()">
+            <img id="map-display">
+            <div id="location-dot"></div>
+        </div>
+
+        <div id="gm-console" style="display: none;">
+            <div class="admin-bar">
+                <span class="gm-label">GM Menu</span>
+                <button class="admin-btn" onclick="changePhase('day')">☀ 朝</button>
+                <button class="admin-btn" onclick="changePhase('night')">🌙 夜</button>
+                <button class="admin-btn" onclick="openPlayerList()">👥 状況</button>
+            </div>
+        </div>
+
+        <div id="chat-area"></div>
+
+        <div id="quick-reply">
+            <div id="fixed-actions">
+                <button class="qr-btn loc-btn" onclick="showCurrentLocation()">📍 現在地</button>
+            </div>
+            <div id="scroll-actions"></div>
+        </div>
+
+        <div class="controls">
+            <input type="text" id="chat-input" placeholder="メッセージを入力...">
+            <button class="send-btn" onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

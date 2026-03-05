@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Web人狼</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+</head>
+<body>
+
+    <div id="login-overlay" style="display: flex;">
+        <div class="login-box">
+            <h2 id="auth-title">ログイン</h2>
+            <div class="auth-form-group">
+                <input type="text" id="auth-username" class="auth-input" placeholder="名前を入力..." autocomplete="off">
+                <p class="warning">(不正アクセスを防ぐため推測できる文字は控えてください)</p>
+                <input type="password" id="auth-password" class="auth-input" placeholder="パスワード..." autocomplete="off">
+            </div>
+            <div style="margin-top: 20px;">
+                <p style="color: #ccc; font-size: 12px;">または</p>
+                <a href="/login/google" style="text-decoration: none; background: white; color: #444; padding: 10px 20px; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 14px; border: 2px solid black;">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" style="width:18px; vertical-align:middle; margin-right:8px;">
+                    Googleでログイン
+            </a>
+            <p style="margin-bottom: 10px;"></p>
+            </div>
+            <div style="margin-top: 10px; text-align: center;">
+                <a href="/login/line" style="text-decoration: none; background: #06C755; color: white; padding: 12px 25px; border-radius: 8px; display: inline-flex; align-items: center; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: 0.2s;">
+                    <span style="margin-right:10px;">L</span>
+                    LINEでログイン
+                </a>
+                <p style="margin-bottom: 10px;"></p>
+            </div>
+            <button id="auth-submit-btn" class="start-btn" onclick="submitAuth()">ログイン</button>
+            <div class="auth-toggle-area">
+                <span id="toggle-desc">アカウントをお持ちでないですか？</span><br>
+                <a href="javascript:void(0)" id="toggle-link" onclick="switchAuthMode()">新規登録はこちら</a>
+            </div>
+            <p id="auth-msg"></p>
+        </div>
+    </div>
+
+    <div id="gm-player-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <h3>現在の生存状況</h3>
+        <div id="player-list-area">
+            </div>
+        <button onclick="closePlayerList()">閉じる</button>
+    </div>
+    </div>
+
+
+    <div id="fullscreen-overlay" onclick="closeFullscreen()">
+        <button id="close-btn">×</button>
+        <div style="position: relative; display: inline-block;">
+            <img id="fullscreen-img" alt="全画面表示画像">
+            <div id="fullscreen-dot"></div>
+        </div>
+        <div id="fullscreen-title"></div>
+    </div>
+
+
+    <div id="game-container" style="display: none;">
+        <div id="role-display-container">
+            <img id="role-image" src="" alt="役職画像" style="display: none;">
+            <div id="role-name-text">役職確認中...</div>
+
+            <div id="timer-display">
+            <span id="phase-label">昼</span>: <span id="time-left">00:00</span>
+            </div>
+
+            <div id="gm-console" style="display: none;">
+            <div class="admin-bar">
+                <span class="gm-label">GM Menu</span>
+                <button class="admin-btn" onclick="changePhase('day')">☀️ 朝</button>
+                <button class="admin-btn" onclick="changePhase('night')">🌙 夜</button>
+                <button class="admin-btn" onclick="openPlayerList()">👥 状況</button>
+            </div>
+        </div>
+        </div>
+        <div id="user-stats-display"></div>
+
+        <div id="role-card" onclick="showRoleFullscreen()" style="display: none;">
+            <img id="role-img" alt="あなたの役職カード">
+        </div>
+    
+        <div class="floating-map" onclick="showFullMap()">
+            <img id="map-display" alt="現在の村のマップ">
+            <div id="location-dot"></div>
+        </div>
+
+        <div id="gm-console" style="display: none;">
+            <div class="admin-bar">
+                <span class="gm-label">GM Menu</span>
+                <button class="admin-btn" onclick="changePhase('day')">☀ 朝</button>
+                <button class="admin-btn" onclick="changePhase('night')">🌙 夜</button>
+                <button class="admin-btn" onclick="openPlayerList()">👥 状況</button>
+            </div>
+        </div>
+
+        <div id="chat-area"></div>
+
+        <div id="quick-reply">
+                <div id="fixed-actions">
+                    <button class="qr-btn loc-btn" onclick="showCurrentLocation()">📍 現在地</button>
+                    <button class="qr-btn info-btn" onclick="checkNearbyPlayers()" style="background-color: #f39c12 !important;">👥 周辺確認</button>
+                </div>
+            <div id="scroll-actions"></div>
+        </div>
+        
+<div id="chat-log"></div>
+
+<div class="chat-controls">
+    <input type="text" id="message-input" placeholder="メッセージを入力..." onkeypress="if(event.key==='Enter') sendMessage()">
+    <button id="send-btn" onclick="sendMessage()">送信</button>
+</div>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

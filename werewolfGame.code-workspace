@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "../werewolfGame_LINE"
+		},
+		{
+			"path": "../werewolfGame_LINEdata"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../werewolfGame_ngrok"
+		},
+		{
+			"path": "../werewolfGame_mente"
+		}
+	]
+}
