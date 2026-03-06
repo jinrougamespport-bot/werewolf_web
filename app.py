@@ -52,6 +52,16 @@ line = oauth.register(
     }
 )
 
+# Discordの設定追加
+oauth.register(
+    name='discord',
+    client_id=os.getenv('DISCORD_CLIENT_ID'),
+    client_secret=os.getenv('DISCORD_CLIENT_SECRET'),
+    access_token_url='https://discord.com/api/oauth2/token',
+    authorize_url='https://discord.com/api/oauth2/authorize',
+    api_base_url='https://discord.com/api/',
+    client_kwargs={'scope': 'identify email'}, # identifyでユーザー名やアイコンを取得
+)
 
 
 USER_DB = "users.json"
@@ -585,6 +595,24 @@ def line_callback():
     session['username'] = name
     return redirect(url_for('dashboard', name=name))
 
+
+
+
+# ログイン用のルート
+@app.route('/login/discord')
+def login_discord():
+    redirect_uri = url_for('auth_discord', _external=True)
+    return oauth.discord.authorize_redirect(redirect_uri)
+
+# コールバック（戻り先）のルート
+@app.route('/auth/discord')
+def auth_discord():
+    token = oauth.discord.authorize_access_token()
+    resp = oauth.discord.get('users/@me')
+    user_info = resp.json()
+    # ここで user_info['username'] などが取得できます
+    # セッションへの保存処理などを書く
+    return redirect('/')
 
 
 if __name__ == '__main__':
