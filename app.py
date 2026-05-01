@@ -20,10 +20,8 @@ app = Flask(__name__)
 
 app.secret_key = os.getenv('SECRET_KEY')
 
-
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-app.secret_key = 'random_secret_key' # セッション用に適当な文字列を設定
 oauth = OAuth(app)
 
 
@@ -50,17 +48,6 @@ line = oauth.register(
         'scope': 'profile', 
         'token_endpoint_auth_method': 'client_secret_post',
     }
-)
-
-# Discordの設定追加
-oauth.register(
-    name='discord',
-    client_id=os.getenv('DISCORD_CLIENT_ID'),
-    client_secret=os.getenv('DISCORD_CLIENT_SECRET'),
-    access_token_url='https://discord.com/api/oauth2/token',
-    authorize_url='https://discord.com/api/oauth2/authorize',
-    api_base_url='https://discord.com/api/',
-    client_kwargs={'scope': 'identify email'}, # identifyでユーザー名やアイコンを取得
 )
 
 
@@ -369,7 +356,7 @@ def handle_skill(data):
         emit('new_chat', {'name': 'システム', 'msg': f"【速報】{target_name} さんが無残な姿で発見されました。"}, broadcast=True)
         emit_player_list()
 
-
+"""
 @socketio.on('change_phase')
 def handle_phase(data):
     user = players.get(request.sid)
@@ -380,20 +367,82 @@ def handle_phase(data):
             new_time = DAY_TIME if new_phase == "day" else NIGHT_TIME
             game_state["remaining_time"] = new_time
             
-            # --- 修正ポイント： broadcast=True を消す ---
-            # socketio.emit なら、これだけで全員に飛びます
+            # 全員に「フェーズが変わったよ」と送る（消しちゃダメ！）
             socketio.emit('phase_update', {
                 "phase": new_phase, 
                 "url": MAP_URLS[new_phase]
             })
-            
+
+            # 全員に「タイマーがリセットされたよ」と送る（消しちゃダメ！）
             socketio.emit('timer_update', {
                 "remaining_time": new_time,
                 "phase": new_phase
             })
-            # ------------------------------------------
+
+            # ★ここからが「追加」するクエスト発生ロジック★
+            if new_phase == "night":
+                # 5秒〜30秒の間のランダムな時間に発生させる
+                delay = random.randint(5, 30)
+                def trigger_quest():
+                    time.sleep(delay)
+                    # もし時間が経ったときにまだ夜だったら、クエスト合図を全員に送る
+                    if game_state["phase"] == "night":
+                        socketio.emit('enable_quest')
+                        print("Night quest has been enabled!")
+                
+                # 他の処理を止めないように、バックグラウンド(Thread)で実行
+                threading.Thread(target=trigger_quest).start()
+            # ★ここまで★
 
             print(f"Phase changed to {new_phase}, time reset to {new_time}")
+
+"""
+            
+
+@socketio.on('change_phase')
+def handle_phase(data):
+    new_phase = data.get('phase')
+    if not new_phase:
+        return
+
+    game_state["phase"] = new_phase
+    
+    # --- ここで時間を「強制リセット」する ---
+    # 昼なら DAY_TIME (300秒)、夜なら NIGHT_TIME (60秒など) を代入
+    if new_phase == "day":
+        new_time = DAY_TIME
+    else:
+        new_time = NIGHT_TIME
+    
+    game_state["remaining_time"] = new_time
+    print(f"DEBUG: フェーズを {new_phase} に変更。時間を {new_time} 秒にリセットしました。")
+
+    # 1. 全員にフェーズ更新を通知（背景が変わる）
+    socketio.emit('phase_update', {
+        'phase': new_phase,
+        'url': MAP_URLS.get(new_phase, "/static/マップ画像昼.png")
+    })
+
+    # 2. 全員に「リセットされた時間」を通知（タイマーが同期する）
+    socketio.emit('timer_update', {
+        "remaining_time": new_time,
+        "phase": new_phase
+    })
+
+    # 3. 夜限定のクエスト発生ロジック
+    if new_phase == "night":
+        delay = random.randint(5, 10)
+        def trigger_quest():
+            eventlet.sleep(delay)
+            if game_state["phase"] == "night":
+                socketio.emit('enable_quest')
+                print(f"DEBUG: クエスト信号を送信しました")
+        
+        eventlet.spawn(trigger_quest)
+
+
+
+
 
 
 # --- 試合終了ボタン用 ---
@@ -596,23 +645,6 @@ def line_callback():
     return redirect(url_for('dashboard', name=name))
 
 
-
-
-# ログイン用のルート
-@app.route('/login/discord')
-def login_discord():
-    redirect_uri = url_for('auth_discord', _external=True)
-    return oauth.discord.authorize_redirect(redirect_uri)
-
-# コールバック（戻り先）のルート
-@app.route('/auth/discord')
-def auth_discord():
-    token = oauth.discord.authorize_access_token()
-    resp = oauth.discord.get('users/@me')
-    user_info = resp.json()
-    # ここで user_info['username'] などが取得できます
-    # セッションへの保存処理などを書く
-    return redirect('/')
 
 
 if __name__ == '__main__':

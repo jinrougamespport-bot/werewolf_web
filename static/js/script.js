@@ -11,6 +11,22 @@ let canMoveList = [];
 let playerList = []; 
 let myName = "";
 let currentAuthMode = 'login'; // 'login' または 'register'
+let questProgress = 0;
+let questEnabled = false;
+
+
+
+let isDoingQuest = false;
+// script.js の 30行目（ROOM_COORDINATESの後）あたりに追加
+const QUEST_DATA = {
+    "貯水タンク": { id: "repair_tank", name: "タンクを直す", time: 5000 },
+    "電気室":     { id: "repair_generator", name: "発電機を直す", time: 8000 },
+    "畑":         { id: "harvest_field", name: "畑の収穫", time: 3000 },
+    "風車":       { id: "grind_wheat", name: "風車で小麦を挽く", time: 5000 },
+    "パン屋":     { id: "bake_bread", name: "パンを焼く", time: 10000 }
+};
+
+
 
 // 地図上の点の位置設定
 const ROOM_COORDINATES = {
@@ -349,6 +365,45 @@ socket.on('player_died', (data) => {
 // --- 5. プレイヤー操作関連の関数 ---
 
 
+// フェーズが変わった時の処理に追記
+socket.on('phase_changed', function(data) {
+    currentPhase = data.phase;
+    questEnabled = false; // 朝になっても夜になっても一旦リセット
+    isDoingQuest = false;
+    updateDotPosition(); 
+    // ...既存のフェーズ変更処理...
+});
+
+socket.on('phase_update', function(data) {
+    if (data.phase) {
+        console.log("フェーズ切り替え受信:", data.phase);
+        currentPhase = data.phase; 
+        updateMap(data.url);
+        
+        // 夜になったらフラグをリセット
+        questEnabled = false; 
+        isDoingQuest = false;
+        
+        if (typeof changeBackgroundColor === 'function') {
+            changeBackgroundColor(data.phase);
+        }
+        updateDotPosition(); 
+    }
+});
+
+
+socket.on('enable_quest', function() {
+    console.log("★クエスト信号が届きました！"); 
+    if (currentPhase === 'night') {
+        questEnabled = true;
+        updateDotPosition(); // これでボタンを強制出現させる
+        alert("⚠️ 異常発生！施設を修理してください！"); 
+    }
+});
+
+
+
+
 function sendMessage() {
     const input = document.getElementById('message-input');
         const msgContent = input.value.trim();
@@ -407,25 +462,38 @@ function addSkillBtn(actionName) {
     container.appendChild(btn);
 }
 
-// --- 6. UI表示・画像関連 ---
 
-// 現在地のドット移動
 function updateDotPosition() {
-    const coord = ROOM_COORDINATES[currentRoomName];
     const miniDot = document.getElementById('location-dot');
-    
-    // 全画面用のドットがある場合も考慮
     const fullDot = document.getElementById('fullscreen-dot');
-
+    const coords = ROOM_COORDINATES[currentRoomName];
+    
+    // 1. ドットの移動
     [miniDot, fullDot].forEach(dot => {
-        if (dot && coord) {
-            dot.style.display = "block";
-            dot.style.top = coord.top;
-            dot.style.left = coord.left;
+        if (dot && coords) {
+            dot.style.top = coords.top;
+            dot.style.left = coords.left;
+            dot.style.display = 'block';
         } else if (dot) {
-            dot.style.display = "none";
+            dot.style.display = 'none';
         }
     });
+
+    // 2. クエストボタンの制御
+    const questContainer = document.getElementById('quest-container');
+    const questBtn = document.getElementById('quest-btn');
+    if (!questContainer || !questBtn) return;
+
+    const quest = QUEST_DATA[currentRoomName];
+
+    // 「夜」かつ「ランダム信号が届いた」かつ「その部屋にクエストがある」なら表示
+    if (currentPhase === 'night' && questEnabled && quest && !isDoingQuest) {
+        questContainer.style.display = 'block';
+        questBtn.innerText = quest.name + "を開始";
+        questBtn.onclick = () => executeQuest(quest); 
+    } else {
+        questContainer.style.display = 'none';
+    }
 }
 
 // プレイヤー統計の表示
@@ -575,8 +643,26 @@ document.addEventListener('keypress', (e) => {
 });
 
 
+//---------------------------以下クエストプログラム---------------------------
+
+function checkQuestAvailable() {
+    const questContainer = document.getElementById('quest-container');
+    const questBtn = document.getElementById('quest-btn');
+    const quest = QUEST_DATA[currentRoomName];
+
+    if (quest && !isDoingQuest) {
+        questContainer.style.display = 'block';
+        questBtn.innerText = quest.name + "を開始";
+        questBtn.onclick = () => executeQuest(quest);
+    } else {
+        questContainer.style.display = 'none';
+    }
+}
+
+
 
 window.onload = function() {
+    updateDotPosition();
     const params = new URLSearchParams(window.location.search);
     const nameFromUrl = params.get('name');
     
@@ -633,3 +719,70 @@ socket.on('timer_update', function(data) {
         timeLeftElement.innerText = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
     }
 });
+
+// --- クエスト完了時の処理（これが足りなかった！） ---
+function finishQuest(quest) {
+    isDoingQuest = false;
+    alert(quest.name + " 完了！");
+    
+    const progressDiv = document.getElementById('quest-progress');
+    if (progressDiv) progressDiv.style.display = 'none';
+    
+    socket.emit('quest_complete', { quest_id: quest.id });
+    updateDotPosition(); 
+}
+
+
+
+function executeQuest(quest) {
+    isDoingQuest = true;
+    let progressValue = 0; 
+    
+    const btn = document.getElementById('quest-btn');
+    const progressDiv = document.getElementById('quest-progress');
+    const bar = document.getElementById('quest-bar');
+
+    if (progressDiv) progressDiv.style.display = 'block';
+    btn.innerText = "連打！！";
+    
+    btn.onclick = (e) => {
+        e.preventDefault();
+        if (!isDoingQuest) return;
+
+        progressValue += 5; 
+        if (progressValue >= 99) {
+            progressValue = 100;
+            if (bar) bar.style.width = "100%";
+            finishQuest(quest); 
+        } else {
+            if (bar) bar.style.width = progressValue + "%";
+            updateBarColor(bar, progressValue);
+        }
+    };
+
+    const drainInterval = setInterval(() => {
+        if (!isDoingQuest) {
+            clearInterval(drainInterval);
+            return;
+        }
+        progressValue -= 1.0; 
+        if (progressValue < 0) progressValue = 0;
+        if (bar) bar.style.width = progressValue + "%";
+    }, 100);
+}
+
+
+function updateBarColor(bar, val) {
+    if (val < 30) bar.style.background = "#e74c3c";
+    else if (val < 70) bar.style.background = "#f1c40f";
+    else bar.style.background = "#2ecc71";
+}
+
+function showEndRoll() {
+    const endRoll = document.getElementById('end-roll-overlay');
+    if (endRoll) {
+        endRoll.style.display = 'flex';
+        // BGMを止める、またはエンドロール用の曲を流す処理をここに入れてもいいですね
+        console.log("エンドロールを開始しました");
+    }
+}

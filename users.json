@@ -14,51 +14,34 @@
         "wins": 0,
         "losses": 0
     },
-    "そうた": {
-        "password": "scrypt:32768:8:1$gRukkTNJwdpleBKG$ab72e63d8c75230d3fcfb59080a1dae3f924da84f612c970650f3544ed437997de030c8339be468efd387cde642cb17772db30c92e2a9777d2b54374964c3cc5",
-        "wins": 0,
-        "losses": 0
-    },
-    "抹茶ソーダ": {
-        "password": "scrypt:32768:8:1$16If92LqCAHpB1kr$0aa02224eb057aa3e6d499b7b40bded2f24ab25c1906df57bdabb1e91bb2fbfd230c3c9c1d6ee03d43a971f1fd8113fcf636e95aa0c82c522ecebc18bc2e4ea9",
-        "wins": 0,
-        "losses": 0
-    },
     "みさき": {
         "password": "scrypt:32768:8:1$js8lVmGpm3YwziRD$2ded9d9d376060294710be1ea85e3aa2e3ff008dc33f19497a89ac93c9e8b2e4111d20846d72b98fe6150fb7c957eff3f7dc6f1e17121d660c0db73207997f2f",
         "wins": 0,
         "losses": 0
     },
-    "ayuko2": {
-        "password": "scrypt:32768:8:1$9bu5BFN7Ar4HdXDp$1d7f224f0bc74d63ce6cf8cd7ca9f5748c7d3a8da83cf4aeddd92161da16eb9248159ae6ad455e215cb2eda06de63e205d6fc48a8f5dc4366264d0521c130849",
+    "にじか": {
+        "password": "scrypt:32768:8:1$3D0BUJqjZL4UYKwj$693f00db1c5f2d56ca8b8c2b82611a52e6082b19d51beb81a85449be4279ba7f746ea25f98b5bc2981c5197a769af7747b50ea7f571cd01f925814a789c1c470",
         "wins": 0,
         "losses": 0
     },
-    "りんご": {
-        "password": "scrypt:32768:8:1$RminjniqGIlnM0j6$78c25d87ce2f894077c7eb1a5386374977cb939d8fe1a12f274a5f5706561fdbb5d20b7974c9205c7596a91ab5878acb3b38cdc5c684d28790052bc9441cacca",
+    "抹茶ソーダ": {
+        "password": "scrypt:32768:8:1$P7ec7RSNiRI8o1AV$5a7aff4fcabb0678430de35846382f5f9ea77d011890988134a0f66e99a9bff0ef5dcbbc26252ebda84579bd0416021fe2b83cefd8fe1ba30754db39b9f4a179",
         "wins": 0,
         "losses": 0
     },
-    "testuser1": {
-        "password": "scrypt:32768:8:1$KXxF8SH8YkP6j70R$d6644c59b443034bc94840128f1194aacf06341a714513053d7a23b70ccd820eb08cad2c971d18375c1b2a87375692ed4f430dd097e1048a6979462cabc0bcf6",
+    "test_user01": {
+        "password": "scrypt:32768:8:1$Gli6NsDPiBmiYb4H$4dcd2758fcfd58cc0ddacc12d47a5d1ac11a137d5630ff942fe9c07434de5a2ae3551f87e365801556fb2ec913486fef0a18550a5a7700a53884374304afae25",
         "wins": 0,
         "losses": 0
     },
-    "testuser2": {
-        "password": "scrypt:32768:8:1$ngrXqDVGExdhAapW$d90bceecce1a4cc3b5653355c4afb372ccf367c410235afae151e5176cf4a6aa0342d50da03606e90dd181011995eaf237095b1ca4decfa174d4f22d6d4d82bb",
+    "test user01": {
+        "password": "scrypt:32768:8:1$c58yO0gfcgjvhOn4$feaea5596577f8905bd7ff4bd9e0ee4846dc3c09f6555397ada12c4d6feb4193da6c98b5c098bc25b8e62ca321e2ffd6fc4936fe4f75762bbb459068a0f4e15f",
         "wins": 0,
         "losses": 0
     },
-    "加藤歩夢": {
-        "password": "scrypt:32768:8:1$NhqsKNFXdj6HUmcl$c9cc82eb15481da9fc4c81801aa7e84284b8a7bec72f3aff3e6d96e8593fc6ee26883c7b535c65daa0daed9a152c13978318b12052a93f35bdd47f130ae907c5",
+    "Test usar01": {
+        "password": "scrypt:32768:8:1$PcgEyRhSBHp3ZvLx$afa7d68ae8fa35a99baed75883b3e943c9cd112b75ea31ae6ab255e1e4ec32edc1899924fc8d4e92a002c0ba83a1160d4223ce9aff6c70c51933c1fc9594f0fd",
         "wins": 0,
-        "losses": 0,
-        "is_google": true
-    },
-    "歩夢": {
-        "password": "scrypt:32768:8:1$GX1IELs1yzejwcaU$3dfd0bf4bf036c796fffce0b8256df76ad16baf843c1c9a499e17d2f440e8a66dc74d29f3ec2dcac2fdbf4ea74660920c0abcc463e4cebd3ac2a5e7f5789487c",
-        "wins": 0,
-        "losses": 0,
-        "is_line": true
+        "losses": 0
     }
 }
