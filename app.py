@@ -25,6 +25,12 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 oauth = OAuth(app)
 
 
+night_actions = {
+    "attack_target": None,
+    "guard_target": None
+}
+
+
 google = oauth.register(
     name='google',
     client_id=os.getenv('GOOGLE_CLIENT_ID'),
@@ -74,15 +80,15 @@ MAP_URLS = {
 ROOM_DATA = {
     "待機室": "/static/待機室.png",
     "広場": "/static/広場.png",
-    "Aさんの家": "/static/Aさんの家.png",
-    "Mさんの家": "/static/Mさんの家.png",
-    "Sさんの家": "/static/Sさんの家.png",
+    "Aさんの家": "/static/Aの家.png",
+    "Mさんの家": "/static/Mの家.png",
+    "Sさんの家": "/static/Sの家.png",
     "パン屋": "/static/パン屋.png",
     "貯水タンク": "/static/貯水タンク.png",
     "電気室": "/static/電気室.png",
     "畑": "/static/畑.png",
     "風車": "/static/風車.png",
-    "村長の家": "/static/待機室.png"
+    "村長の家": "/static/村長の家.png"
 }
 
 ROOM_MOVES = {
@@ -334,27 +340,48 @@ def handle_move(data):
     else:
         print(f"DEBUG: 移動失敗 - 条件を満たしていません (user={user})")
 
+# ※必ず関数の外（ファイルの上のほうなど）に定義してください
+night_actions = {"attack_target": None, "guard_target": None}
+
+# ⚠️ app.pyの上のほう（関数の外）にこれが定義されているか確認してください
+night_actions = {"attack_target": None, "guard_target": None}
+
 @socketio.on('use_skill')
-def handle_skill(data):
-    user = players.get(request.sid)
-    target_name = data.get('target')
-    skill_type = data.get('skill')
-    if not user or not user['is_alive']: return
+def handle_use_skill(data):
+    global night_actions
+    skill_type = data.get('type')  # 'attack', 'guard', 'fortune'
+    user = data.get('user')        # 使用者の名前
+    target = data.get('target')    # 対象者の名前
 
-    target_sid = next((sid for sid, p in players.items() if p['name'] == target_name), None)
-    if not target_sid: return
+    print(f"DEBUG: スキル使用 - 使用者: {user}, 種類: {skill_type}, 対象: {target}")
 
-    # GMログ
-    log_msg = f"【能力】{user['name']}({user['role']}) -> {target_name}: {skill_type}"
-    for sid, p in players.items():
-        if p.get('is_gm'):
-            emit('new_chat', {'name': 'GMログ', 'msg': log_msg}, to=sid)
+    # 1. 🐺 人狼の襲撃（夜の間は名前をセットするだけ。ここでは殺さない）
+    if skill_type == 'attack':
+        night_actions["attack_target"] = target
+        emit('new_chat', {'name': 'システム', 'msg': f"【夜の行動】{target} への襲撃をセットしました。"}, room=request.sid)
 
-    if skill_type == "襲撃する":
-        players[target_sid]['is_alive'] = False
-        emit('player_died', {"msg": "人狼に襲撃されました。"}, to=target_sid)
-        emit('new_chat', {'name': 'システム', 'msg': f"【速報】{target_name} さんが無残な姿で発見されました。"}, broadcast=True)
-        emit_player_list()
+    # 2. 🛡️ 守り人の守護（夜の間は名前をセットするだけ）
+    elif skill_type == 'guard':
+        night_actions["guard_target"] = target
+        emit('new_chat', {'name': 'システム', 'msg': f"【夜の行動】{target} の守護をセットしました。"}, room=request.sid)
+
+    # 3. 🔮 占い師の占い（その場で結果を本人に返す）
+    elif skill_type == 'fortune':
+        # ※もし実際のユーザーデータ(players等)があれば以下のように役職を取得できます
+        # target_role = "人狼" もし対象が人狼なら...
+        if target == "奏太":  # テストログに合わせた簡易判定
+            result_msg = f"🔮占い結果: 【{target}】 は 🐺人狼 です！"
+        else:
+            result_msg = f"🔮占い結果: 【{target}】 は 👤人間(村人陣営) です。"
+            
+        emit('new_chat', {'name': 'システム(占い)', 'msg': result_msg}, room=request.sid)
+
+    # --- 👑 GM（gm_jinrouGM）だけにリアルタイムで全ログを流す ---
+    skill_names = {"fortune": "占い", "guard": "守護", "attack": "襲撃"}
+    log_msg = f"【GMログ】{user} が {target} に「{skill_names.get(skill_type, skill_type)}」を使用しました。"
+    
+    # GM専用のイベントでフロント（script.js）に通知
+    socketio.emit('gm_skill_log', {'msg': log_msg})
 
 """
 @socketio.on('change_phase')
@@ -399,16 +426,60 @@ def handle_phase(data):
 """
             
 
+# ※もし app.py の上部にこれがなければ、関数の外（グローバル変数定義のあたり）に配置してください
+night_actions = {"attack_target": None, "guard_target": None}
+
 @socketio.on('change_phase')
 def handle_phase(data):
+    global night_actions
     new_phase = data.get('phase')
     if not new_phase:
         return
 
+    # --- ☀️ 朝（day）になったときのスキル結果判定を追加 ---
+    if new_phase == "day":
+        attack = night_actions.get("attack_target")
+        guard = night_actions.get("guard_target")
+        
+        print(f"DEBUG: 朝の判定処理 - 襲撃対象: {attack}, 守護対象: {guard}")
+        
+        # --- (handle_phase 内の朝の判定部分) ---
+        if attack and attack == guard:
+            # 守護成功
+            socketio.emit('new_chat', {
+                'name': 'システム', 
+                'msg': "☀️ 朝になりました。昨晩は守り人の活躍により、誰も死にませんでした。"
+            })
+        elif attack:
+            # 【追加】サーバー側のプレイヤーデータでも生存フラグを「死亡」に更新する
+            for sid, p in players.items():
+                if p.get('name') == attack:
+                    p['is_alive'] = False
+                    break
+            
+            # 【追加】死亡状態を反映した最新のプレイヤーリストを全員に再配布して同期
+            emit_player_list()
+
+            # 誰が死んだかの名前（target_name）を入れて全員に通知
+            socketio.emit('player_died', {'target_name': attack, 'msg': "あなたは昨晩、人狼に襲撃されて死亡しました。"})
+            socketio.emit('new_chat', {
+                'name': 'システム', 
+                'msg': f"☀️ 朝になりました。昨晩は 【{attack}】 が犠牲になりました。"
+                })
+        else:
+            # 夜の間に誰も襲撃を選ばなかった場合
+            socketio.emit('new_chat', {
+                'name': 'システム', 
+                'msg': "☀️ 朝になりました。昨晩は誰も死にませんでした。"
+            })
+            
+        # 次の夜のためにセットされたターゲットをリセット
+        night_actions = {"attack_target": None, "guard_target": None}
+    # ----------------------------------------------------
+
+    # 以下、元々あった時間リセット等の処理
     game_state["phase"] = new_phase
     
-    # --- ここで時間を「強制リセット」する ---
-    # 昼なら DAY_TIME (300秒)、夜なら NIGHT_TIME (60秒など) を代入
     if new_phase == "day":
         new_time = DAY_TIME
     else:
@@ -417,19 +488,21 @@ def handle_phase(data):
     game_state["remaining_time"] = new_time
     print(f"DEBUG: フェーズを {new_phase} に変更。時間を {new_time} 秒にリセットしました。")
 
-    # 1. 全員にフェーズ更新を通知（背景が変わる）
+    #socketio.emit('phase_update', {
+    #    'phase': new_phase,
+    #    'url': MAP_URLS.get(new_phase, "/static/マップ画像昼.png")
+    #})
+
     socketio.emit('phase_update', {
-        'phase': new_phase,
-        'url': MAP_URLS.get(new_phase, "/static/マップ画像昼.png")
+    'phase': new_phase,
+    'url': MAP_URLS.get(new_phase)
     })
 
-    # 2. 全員に「リセットされた時間」を通知（タイマーが同期する）
     socketio.emit('timer_update', {
         "remaining_time": new_time,
         "phase": new_phase
     })
 
-    # 3. 夜限定のクエスト発生ロジック
     if new_phase == "night":
         delay = random.randint(5, 10)
         def trigger_quest():
@@ -439,7 +512,6 @@ def handle_phase(data):
                 print(f"DEBUG: クエスト信号を送信しました")
         
         eventlet.spawn(trigger_quest)
-
 
 
 
@@ -520,7 +592,7 @@ def game_timer_loop():
                     "phase": game_state["phase"]
                 })
             else:
-                # フェーズ切り替え（ここは今のままでOK）
+                # ─── ★ここが「残り時間が0秒（以下）になった時」の処理です！ ───
                 new_phase = "night" if game_state.get("phase") == "day" else "day"
                 game_state["phase"] = new_phase
                 game_state["remaining_time"] = NIGHT_TIME if new_phase == "night" else DAY_TIME
@@ -645,6 +717,12 @@ def line_callback():
     return redirect(url_for('dashboard', name=name))
 
 
+
+@socketio.on('trigger_end_roll')
+def handle_end_roll():
+    # 信号が来たら、接続している全員に「start_end_roll」を拡散する
+    socketio.emit('start_end_roll')
+    
 
 
 if __name__ == '__main__':

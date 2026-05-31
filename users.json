@@ -43,5 +43,21 @@
         "password": "scrypt:32768:8:1$PcgEyRhSBHp3ZvLx$afa7d68ae8fa35a99baed75883b3e943c9cd112b75ea31ae6ab255e1e4ec32edc1899924fc8d4e92a002c0ba83a1160d4223ce9aff6c70c51933c1fc9594f0fd",
         "wins": 0,
         "losses": 0
+    },
+    "歩夢": {
+        "password": "scrypt:32768:8:1$MLQB5JBemYp6cGrI$88825f9941f3c4577921f9b0d4e7d867d3c222e545931ad2eebfeeb2a9c2622cea5b451a090d0f478697fce62072ab8e153e0d41b260b6727dfc0a744717ff50",
+        "wins": 0,
+        "losses": 0,
+        "is_line": true
+    },
+    "test": {
+        "password": "scrypt:32768:8:1$CfAAU7FBhXp7UQ0I$4bd9a0e936c32ed4c622b503eb1bafef47e143ce9ee474c4e178bcd5c8d9c6070eca14a2201f12feda4ac7178d28e79906a260f4ede0f9a7fe24c63adda12b4f",
+        "wins": 0,
+        "losses": 0
+    },
+    "奏太": {
+        "password": "scrypt:32768:8:1$waSjM3piM7Ppd36j$65fbe0e69c115a96b73039d0df4fa59c877546b448b9737882ab60949b0f5f3011adae8ada1705cba728ada5c180eb380a59c070eb7e16504ae72df7f5019499",
+        "wins": 0,
+        "losses": 0
     }
 }
