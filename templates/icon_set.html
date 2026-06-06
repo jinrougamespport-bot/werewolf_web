@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>人狼ゲーム - アイコン選択</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background-color: #11141a; color: white;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh;
+        }
+        .config-box {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 40px; border-radius: 16px;
+            border: 1px solid #333; text-align: center;
+            width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        h2 { margin-bottom: 25px; font-size: 22px; letter-spacing: 1px; }
+        
+        /* 14個の画像を並べるグリッド */
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            border: 1px solid #222;
+        }
+        .icon-item {
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .icon-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.05);
+        }
+        /* 選択された時の青い枠線 */
+        .icon-item.selected {
+            border-color: #3498db;
+            background: rgba(52, 152, 219, 0.2);
+        }
+        .icon-item img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            /* ★ドット絵がぼやけないようにする魔法のプロパティ */
+            image-rendering: pixelated; 
+        }
+        
+        .submit-btn {
+            width: 100%; padding: 12px; background: #3498db;
+            color: white; border: none; border-radius: 6px;
+            font-weight: bold; font-size: 16px; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .submit-btn:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+
+    <div class="config-box">
+        <h2>アバターアイコン選択</h2>
+        <p style="color: #aaa; font-size: 14px; margin-bottom: 20px;">参戦するキャラクターを選んでください</p>
+        
+        <form action="/set_icon" method="POST" id="icon-form">
+            <input type="hidden" id="selected-icon" name="icon_image" value="icon1.png">
+
+            <div class="icon-grid">
+                {% set icons = [
+                    {'file': 'icon1.png', 'name': 'いぬ'},
+                    {'file': 'icon2.png', 'name': 'うさぎ'},
+                    {'file': 'icon3.png', 'name': 'うちゅう'},
+                    {'file': 'icon4.png', 'name': 'かえる'},
+                    {'file': 'icon5.png', 'name': 'くま'},
+                    {'file': 'icon6.png', 'name': 'ちょうちょ'},
+                    {'file': 'icon7.png', 'name': 'にこ'},
+                    {'file': 'icon8.png', 'name': 'にじ'},
+                    {'file': 'icon9.png', 'name': 'ねこ'},
+                    {'file': 'icon10.png', 'name': 'はーと'},
+                    {'file': 'icon11.png', 'name': 'ヘッドホン'},
+                    {'file': 'icon12.png', 'name': 'リボン'},
+                    {'file': 'icon13.png', 'name': 'ロボット'}
+                ] %}
+                
+                {% for icon in icons %}
+                <div class="icon-item {% if loop.first %}selected{% endif %}" onclick="selectIcon('{{ icon.file }}', this)">
+                    <img src="{{ url_for('static', filename='icons/' ~ icon.file) }}" alt="{{ icon.name }}">
+                    <span style="display:none;">{{ icon.name }}</span> 
+                </div>
+                {% endfor %}
+            </div>
+
+            <button type="submit" class="submit-btn">このアイコンで参戦する</button>
+        </form>
+    </div>
+
+    <script>
+        function selectIcon(filename, element) {
+            // 隠し入力フィールドに選んだファイル名をセット
+            document.getElementById('selected-icon').value = filename;
+            
+            // 周りの選択枠を消して、クリックしたものだけに枠をつける
+            const items = document.querySelectorAll('.icon-item');
+            items.forEach(item => item.classList.remove('selected'));
+            element.classList.add('selected');
+        }
+    </script>
+</body>
+</html>

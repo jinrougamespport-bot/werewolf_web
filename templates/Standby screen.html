@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>人狼ゲーム - チーム分け待機室</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #11141a;
+            color: white;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        h2 {
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .instructions {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 15px;
+        }
+
+        /* ゲーム画面のコンテナ */
+        #game-canvas-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            width: 600px;
+            height: 600px;
+        }
+
+        /* 画面下のステータス表示 */
+        .status-box {
+            margin-top: 20px;
+            background: rgba(255,255,255,0.05);
+            padding: 12px 30px;
+            border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        #team-label {
+            transition: color 0.3s ease;
+        }
+
+        /* 右下の準備完了ボタン */
+        .ready-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #e67e22;
+            color: white;
+            border: none;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4);
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .ready-button:hover {
+            background: #d35400;
+            transform: scale(1.05);
+        }
+
+        /* --- 📱 スマホ画面（横幅が650px以下）の時の縮小設定 --- */
+        @media (max-width: 650px) {
+            body {
+                justify-content: flex-start;
+                padding-top: 20px;
+            }
+            h2 {
+                font-size: 20px;
+            }
+            .instructions {
+                font-size: 12px;
+                margin-bottom: 5px;
+            }
+            .status-box {
+                padding: 10px 20px;
+                font-size: 14px;
+                margin-top: 15px;
+            }
+
+            /* Canvasのコンテナをスマホの画面幅（90%）に綺麗に縮小 */
+            #game-canvas-container {
+                width: 90vw;
+                height: 90vw;
+                max-width: 420px;
+                max-height: 420px;
+            }
+
+            /* Canvas自体をコンテナの大きさに100%フィットさせる */
+            #stage {
+                width: 100% !important;
+                height: 100% !important;
+            }
+
+            .ready-button {
+                width: 65px;
+                height: 65px;
+                font-size: 13px;
+                bottom: 15px;
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h2>チーム分け待機室</h2>
+    <p class="instructions">アバターをドラッグするか、矢印キー(WASD)で動かしてチームのエリアに移動してください</p>
+
+    <div id="game-canvas-container">
+        <canvas id="stage" width="600" height="600"></canvas>
+        <button id="ready-btn" class="ready-button" onclick="clickReady()">準備<br>完了</button>
+    </div>
+
+    <div class="status-box">
+        現在の所属: <span id="team-label" style="color: #aaa;">未所属</span>
+    </div>
+
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d');
+        const teamLabel = document.getElementById('team-label');
+
+        // セッションからユーザー名を取得（Flaskが埋め込みます）
+        const myName = "{{ session.get('username', 'ゲスト') }}";
+
+        // プレイヤーの初期情報
+        let players = {};
+        let myId = null;
+
+        // 自分の座標（初期値は真ん中）
+        let myX = 300;
+        let myY = 300;
+        const speed = 5;
+        const radius = 15;
+
+        // ドラッグ状態を管理する変数
+        let isDragging = false;
+
+        // キー入力の状態管理
+        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, s: false, d: false };
+
+        // アイコン画像のプリロード（キャッシュ）
+        const iconImages = {};
+        for (let i = 1; i <= 14; i++) {
+            const filename = `icon${i}.png`;
+            const img = new Image();
+            img.src = `/static/icons/${filename}`;
+            iconImages[filename] = img;
+        }
+
+        // キーボードを押したとき
+        window.addEventListener('keydown', (e) => {
+            if (e.key in keys) keys[e.key] = true;
+        });
+
+        // キーボードを離したとき
+        window.addEventListener('keyup', (e) => {
+            if (e.key in keys) keys[e.key] = false;
+        });
+
+        // サーバーに接続した瞬間、自分をエントリー
+        socket.on('connect', () => {
+            myId = socket.id;
+            socket.emit('join_lobby', { name: myName, x: myX, y: myY });
+        });
+
+        // ─── サーバーから全プレイヤーの情報（位置や準備状態）を受け取る ───
+        socket.on('update_players', (serverPlayers) => {
+            players = serverPlayers;
+            
+            // 💡 【ここが2の③の処理です！】
+            // 自分がすでにエントリーされていれば、自分の「ready」の状態を見てボタンの見た目を変えます
+            if (myId && players[myId]) {
+                const rBtn = document.getElementById('ready-btn');
+                if (rBtn) {
+                    if (players[myId].ready) {
+                        rBtn.innerHTML = "解除";
+                        rBtn.style.background = "#2ecc71"; // 準備完了なら緑色に変える
+                    } else {
+                        rBtn.innerHTML = "準備<br>完了";
+                        rBtn.style.background = "#e67e22"; // 未完了なら元のオレンジに戻す
+                    }
+                }
+            }
+
+            // サーバーからデータが届いたら、自分のローカル座標(myX, myY)も同期する
+            if (myId && players[myId] && !isDragging) {
+                myX = players[myId].x;
+                myY = players[myId].y;
+                
+                // 初回ログイン時などのチームラベル更新
+                const currentTeam = checkTeam(myX, myY);
+                teamLabel.innerText = currentTeam.name;
+                teamLabel.style.color = currentTeam.color;
+            }
+        });
+
+        // 判定：自分が今どのエリアにいるか
+        function checkTeam(x, y) {
+            if (x < 300 && y < 300) return { name: '黄チーム', color: '#f1c40f' };
+            if (x >= 300 && y < 300) return { name: '赤チーム', color: '#e74c3c' };
+            if (x < 300 && y >= 300) return { name: '青チーム', color: '#3498db' };
+            return { name: '緑チーム', color: '#2ecc71' };
+        }
+
+        // 移動にともなうチーム更新とサーバー送信の共通処理
+        function sendMovement(x, y) {
+            const currentTeam = checkTeam(x, y);
+            teamLabel.innerText = currentTeam.name;
+            teamLabel.style.color = currentTeam.color;
+
+            socket.emit('move_player', { x: x, y: y, team: currentTeam.name });
+        }
+
+        // キーボードによる移動計算
+        function updateMovement() {
+            if (isDragging) return;
+
+            let moved = false;
+
+            if (keys.ArrowUp || keys.w) { myY -= speed; moved = true; }
+            if (keys.ArrowDown || keys.s) { myY += speed; moved = true; }
+            if (keys.ArrowLeft || keys.a) { myX -= speed; moved = true; }
+            if (keys.ArrowRight || keys.d) { myX += speed; moved = true; }
+
+            if (myX < radius) myX = radius;
+            if (myX > canvas.width - radius) myX = canvas.width - radius;
+            if (myY < radius) myY = radius;
+            if (myY > canvas.height - radius) myY = canvas.height - radius;
+
+            if (moved) {
+                sendMovement(myX, myY);
+            }
+        }
+
+        // 画面縮小を考慮して正しいCanvas内の座標を計算する関数
+        function getCanvasCoordinates(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (clientX - rect.left) * (canvas.width / rect.width);
+            const y = (clientY - rect.top) * (canvas.height / rect.height);
+            return { x, y };
+        }
+
+        // --- マウス操作によるドラッグ＆ドロップ処理 ---
+        canvas.addEventListener('mousedown', (e) => {
+            if (!myId || !players[myId]) return;
+            const coords = getCanvasCoordinates(e.clientX, e.clientY);
+
+            const p = players[myId];
+            const dist = Math.sqrt((coords.x - p.x) ** 2 + (coords.y - p.y) ** 2);
+            if (dist <= radius + 10) {
+                isDragging = true;
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging || !myId || !players[myId]) return;
+            const coords = getCanvasCoordinates(e.clientX, e.clientY);
+            let mouseX = coords.x;
+            let mouseY = coords.y;
+
+            if (mouseX < radius) mouseX = radius;
+            if (mouseX > canvas.width - radius) mouseX = canvas.width - radius;
+            if (mouseY < radius) mouseY = radius;
+            if (mouseY > canvas.height - radius) mouseY = canvas.height - radius;
+
+            myX = mouseX;
+            myY = mouseY;
+            players[myId].x = mouseX;
+            players[myId].y = mouseY;
+            sendMovement(mouseX, mouseY);
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+
+        // --- 📱 スマートフォン（タッチ操作）用のドラッグ処理 ---
+        canvas.addEventListener('touchstart', (e) => {
+            if (!myId || !players[myId]) return;
+            e.preventDefault(); 
+            
+            const touch = e.touches[0];
+            const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+
+            const p = players[myId];
+            const dist = Math.sqrt((coords.x - p.x) ** 2 + (coords.y - p.y) ** 2);
+            if (dist <= radius + 25) {
+                isDragging = true;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isDragging || !myId || !players[myId]) return;
+            e.preventDefault(); 
+            
+            const touch = e.touches[0];
+            const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+            let mouseX = coords.x;
+            let mouseY = coords.y;
+
+            if (mouseX < radius) mouseX = radius;
+            if (mouseX > canvas.width - radius) mouseX = canvas.width - radius;
+            if (mouseY < radius) mouseY = radius;
+            if (mouseY > canvas.height - radius) mouseY = canvas.height - radius;
+
+            myX = mouseX;
+            myY = mouseY;
+            players[myId].x = mouseX;
+            players[myId].y = mouseY;
+            sendMovement(mouseX, mouseY);
+        }, { passive: false });
+
+        window.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+
+        // 💡 準備完了ボタンを押したときの処理
+        function clickReady() {
+            if (!myId || !players[myId]) return;
+            
+            if (players[myId].team === "未所属") {
+                alert("まずはどこかのチームのエリア（色がついている場所）に移動してください！");
+                return;
+            }
+            
+            // サーバーに準備完了状態を切り替えるよう通知
+            socket.emit('toggle_ready');
+        }
+
+        // 💡 サーバーから「全員準備完了したからゲームを始めて！」と言われたときの処理
+        // サーバーから「全員準備完了したからゲームを始めて！」と言われたときの処理
+        socket.on('start_game_trigger', (data) => {
+            if (!myId || !players[myId]) return;
+            
+            if (players[myId].team === data.team) {
+                // 💡 URLの末尾に、自分が所属するチーム情報を追加してジャンプ！
+                window.location.href = `/?name=${encodeURIComponent(myName)}&team=${encodeURIComponent(data.team)}`;
+            }
+        });
+
+
+        // --- 6. 描画ループ処理 ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. グリッド背景の描画
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // 2. 十字の区切り線を描画
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(300, 0); ctx.lineTo(300, 600); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 300); ctx.lineTo(600, 300); ctx.stroke();
+
+            // 3. エリアの文字と背景ボックスを描画
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle'; 
+
+            const areas = [
+                { bg: 'rgba(241, 196, 15, 0.15)', text: '#f1c40f', x: 150, y: 150, label: 'YELLOW' },
+                { bg: 'rgba(231, 76, 60, 0.15)',  text: '#e74c3c', x: 450, y: 150, label: 'RED' },
+                { bg: 'rgba(52, 152, 219, 0.15)',  text: '#3498db', x: 150, y: 450, label: 'BLUE' },
+                { bg: 'rgba(46, 204, 113, 0.15)',  text: '#2ecc71', x: 450, y: 450, label: 'GREEN' }
+            ];
+
+            areas.forEach(area => {
+                ctx.fillStyle = area.bg;
+                const boxW = 140;
+                const boxH = 50;
+                ctx.beginPath();
+                ctx.roundRect(area.x - boxW / 2, area.y - boxH / 2, boxW, boxH, 8);
+                ctx.fill();
+
+                ctx.fillStyle = area.text;
+                ctx.fillText(area.label, area.x, area.y);
+            });
+            ctx.textBaseline = 'alphabetic';
+
+            // 4. 全プレイヤーのアイコンを描画
+            updateMovement();
+
+            Object.keys(players).forEach(id => {
+                const p = players[id];
+                
+                if (p.icon_image && iconImages[p.icon_image]) {
+                    const img = iconImages[p.icon_image];
+                    ctx.imageSmoothingEnabled = false; 
+                    ctx.drawImage(img, p.x - radius, p.y - radius, radius * 2, radius * 2);
+                } else {
+                    ctx.fillStyle = (id === myId) ? '#ffffff' : '#00eeee';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                if (id === myId) {
+                    ctx.strokeStyle = '#3498db';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, radius + 2, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.name, p.x, p.y - (radius + 8)); 
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
