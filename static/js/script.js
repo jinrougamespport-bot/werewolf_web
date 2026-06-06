@@ -1,5 +1,15 @@
 var socket = io();
 
+
+// アイコン画像の名前リスト（あなたが用意するファイル名と完全に一致させてください）
+const iconImages = {};
+for (let i = 1; i <= 13; i++) {
+    const filename = `icon${i}.png`;
+    const img = new Image();
+    img.src = `/static/icons/${filename}`;
+    iconImages[filename] = img;
+}
+
 // --- 1. グローバル変数の定義 ---
 let currentRoomName = "待機室";
 let currentRoomUrl = "";
@@ -14,6 +24,7 @@ let currentAuthMode = 'login'; // 'login' または 'register'
 let questProgress = 0;
 let questEnabled = false;
 let isDoingQuest = false;
+let myTeam = "";
 
 // クエストデータ定義
 const QUEST_DATA = {
@@ -123,41 +134,40 @@ function switchAuthMode() {
 }
 
 function submitAuth() {
-    const name = document.getElementById('auth-username').value.trim();
-    const pass = document.getElementById('auth-password').value.trim();
-    const msg = document.getElementById('auth-msg');
+    const usernameInput = document.getElementById('auth-username');
+    const passwordInput = document.getElementById('auth-password');
+    if (!usernameInput || !passwordInput) return;
 
-    if (!name || !pass) {
-        if (msg) msg.innerText = "名前とパスワードを入力してください";
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!username || !password) {
+        alert('名前とパスワードを入力してください。');
         return;
     }
 
-    const authData = { 
-        username: name, 
-        password: pass, 
-        action: currentAuthMode 
-    };
-
+    // Python側の /login_api に、現在のモード（ログインか新規登録か）を添えて送る
     fetch('/login_api', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true' 
-        },
-        body: JSON.stringify(authData)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            username: username, 
+            password: password,
+            action: currentAuthMode  // 'login' または 'register'
+        })
     })
-    .then(res => res.json())
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log("認証成功:", data);
-            window.location.href = `/game?name=${encodeURIComponent(name)}`;
+            // ログイン・新規登録のどちらが成功しても、アイコン設定画面へジャンプ！
+            window.location.href = "/icon_set";
         } else {
-            if (msg) msg.innerText = data.msg || "認証に失敗しました";
+            alert(data.msg || '認証に失敗しました。');
         }
     })
     .catch(err => {
-        console.error("Auth Error:", err);
-        if (msg) msg.innerText = "サーバーとの通信に失敗しました";
+        console.error('Error:', err);
+        alert('通信エラーが発生しました。');
     });
 }
 
@@ -267,6 +277,8 @@ function sendMessage() {
     const input = document.getElementById('message-input');
     const msgContent = input.value.trim();
 
+    console.log("【JS送信前チェック】入力された文字:", msgContent, "送信者:", myName);
+
     if (msgContent && myName) {
         socket.emit('chat_message', { 
             name: myName, 
@@ -276,15 +288,25 @@ function sendMessage() {
     }
 }
 
+
+
+
+// 🟢 script.js 内の addSystemMessage 関数を探して、これに差し替えます
 function addSystemMessage(msg) {
-    const area = document.getElementById('chat-area');
+    const area = document.getElementById('chat-log');
     if (!area) return;
+    
+    // システムメッセージ用のdivとして綺麗に中央に配置します
     area.innerHTML += `
-        <div class="msg-container">
-            <div class="msg-item" style="background: #ffeb3b; color: #000; font-weight: bold; border: none;">${msg}</div>
-        </div>`;
+        <div style="text-align: center; color: #ffeb3b; font-size: 13px; margin: 5px 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.6); width: 100%;">
+            ${msg}
+        </div>
+    `;
+    
     area.scrollTop = area.scrollHeight;
 }
+
+
 
 function displaySystemMessage(name, msg) {
     const chatLog = document.getElementById('chat-log');
@@ -539,13 +561,11 @@ function submitReview() {
 
 // --- 10. Socket.io イベント受信処理の一本化 ---
 
-
-
 // --- GM専用のスキルログ受信処理 ---
 socket.on('gm_skill_log', function(data) {
     // 自分がGM（gm_jinrouGM）の場合のみ、チャットエリアにログを表示する
     if (isGM || myName === 'gm_jinrouGM') {
-        const area = document.getElementById('chat-area');
+        const area = document.getElementById('chat-log'); // 🌟 'chat-log' に修正
         if (!area) return;
         
         const msgHtml = `
@@ -763,41 +783,267 @@ document.addEventListener('keypress', (e) => {
     }
 });
 
-window.onload = function() {
-    updateDotPosition();
-    const params = new URLSearchParams(window.location.search);
-    const nameFromUrl = params.get('name');
+
+// 💡 サーバーから「ゲームの初期化」や「役職の割り当て」通知を受け取る処理
+socket.on('game_init', function(data) {
+    console.log("game_initを受信しました:", data);
+    console.log("ゲーム初期化データを受信:", data);
     
-    const overlay = document.getElementById('login-overlay');
-    const gameCon = document.getElementById('game-container');
-    const mapDisplay = document.getElementById('map-display');
-    const gmConsole = document.getElementById('gm-console');
+    if (!data) return;
 
-    if (nameFromUrl) {
-        myName = nameFromUrl;
+    if (data.role) {
+        myRole = data.role; // "市民" などを保存
+        
+        // 🌟 HTML側の役職画像要素（ID: role-image）を書き換える
+        const roleImgEl = document.getElementById('role-image');
+        if (roleImgEl) {
+            // 例: /static/市民.png または /static/icons/市民.png など、お使いのパスに合わせてください
+            roleImgEl.src = `/static/${data.role}.png`; 
+            roleImgEl.style.display = 'block'; // 非表示になっていたら表示する
+            console.log("役職画像をセットしました:", roleImgEl.src);
+        }
+    }
 
-        if (overlay) overlay.style.display = 'none';
-        if (gameCon) gameCon.style.display = 'flex';
+    if (data.phase) {
+        currentPhase = data.phase;
+    }
+    if (data.room_name) {
+        currentRoomName = data.room_name;
+    }
+    if (data.can_move) {
+        canMoveList = data.can_move;
+    }
 
-        if (mapDisplay) mapDisplay.src = "/static/マップ画像昼.png";
-
-        if (nameFromUrl === "gm_jinrouGM") {
-            isGM = true;
-            document.body.classList.add('gm-active');
-            if (gmConsole) {
-                gmConsole.style.display = 'block'; 
+    // ─── 💡 1. マップ画像の反映（index.htmlの 'map-image' に確実に流し込む） ───
+    if (data.map_url) {
+        currentMapUrl = data.map_url;
+        try {
+            const mapImgEl = document.getElementById('map-image') || document.getElementById('map-img');
+            if (mapImgEl) {
+                mapImgEl.src = data.map_url;
+                console.log("マップ画像をセットしました:", data.map_url);
             }
-        } else {
-            isGM = false;
+        } catch (e) {
+            console.log("マップ画像反映エラー:", e);
+        }
+    }
+
+    // ─── 💡 2. 部屋画像の反映 ───
+    if (data.room_url) {
+        currentRoomUrl = data.room_url;
+        try {
+            const roomImgEl = document.getElementById('room-image') || document.getElementById('room-img');
+            if (roomImgEl) roomImgEl.src = data.room_url;
+        } catch (e) {
+            console.log("部屋画像反映エラー:", e);
+        }
+    }
+
+    // ─── 💡 3. あなたの index.html のID（role-popup）に完全に合わせた制御 ───
+    try {
+        // HTMLの実際のID名に合わせて取得
+        const targetOverlay = document.getElementById('role-popup');
+        const targetImg = document.getElementById('role-card');
+        const targetNameEl = document.getElementById('role-name');
+
+        if (targetOverlay) {
+            // 役職テキストを「あなたの役職: 市民」に変更
+            if (targetNameEl) {
+                targetNameEl.textContent = `あなたの役職: ${myRole}`;
+            }
+
+            // 役職画像をセット（/static/roles/市民.png など）
+            if (targetImg && myRole) {
+                targetImg.src = `/static/roles/${myRole}.png`;
+                targetImg.style.display = 'block'; // 画像を強制表示
+            }
+
+            // 💡 最初にしっかり最前面に表示させる
+            targetOverlay.style.setProperty('display', 'flex', 'important');
+
+            // 💡 【超重要】3秒後にこのポップアップを非表示にして、裏のマップやボタンを見せる！
+            setTimeout(() => {
+                targetOverlay.style.setProperty('display', 'none', 'important');
+                console.log("役職確認画面（role-popup）を閉じました。メイン画面を表示します。");
+            }, 3000); 
+        }
+    } catch (e) {
+        console.log("役職画面の処理でエラーが発生したため、安全のために強制非表示にします:", e);
+        const targetOverlay = document.getElementById('role-popup');
+        if (targetOverlay) targetOverlay.style.setProperty('display', 'none', 'important');
+    }
+
+    // ─── 💡 4. ボタンとプレイヤー位置の同期 ───
+    try {
+        if (typeof updateDotPosition === 'function') updateDotPosition();
+    } catch(e) {}
+
+    try {
+        if (typeof refreshButtons === 'function') refreshButtons();
+    } catch(e) {}
+    
+    console.log("ゲーム画面の初期化・復旧がすべて完了しました。");
+});
+
+
+// 🟢 script.js の 880行目付近（socket.on('chat_message')）をこれに差し替えます
+socket.on('chat_message', function(data) {
+    console.log("【JS受信チェック】サーバーから届いたチャット:", data);
+    const area = document.getElementById('chat-area');
+    if (!area) return;
+    
+    // 💡 届いたメッセージの「名前」が「自分の名前（myName）」と同じなら my-msg、違うなら other-msg にする
+    const isMyMessage = (data.name === myName);
+    const msgClass = isMyMessage ? 'my-msg' : 'other-msg';
+    
+    // 💡 あなたの style.css にある「chat-entry」と、判定した「msgClass」を両方適用させます
+    area.innerHTML += `
+        <div class="chat-entry ${msgClass}">
+            <strong>${data.name}</strong>: ${data.msg}
+        </div>
+    `;
+        
+    // 画面を自動で一番下までスクロールさせる
+    area.scrollTop = area.scrollHeight;
+});
+
+
+
+
+// 💡 役職画像を変更する関数の例
+function refreshRoleImage() {
+    const roleImgEl = document.getElementById('role-image'); // HTML側の役職画像のID
+    if (roleImgEl && myRole) {
+        // 役職名に応じた画像に切り替える
+        roleImgEl.src = `/static/roles/${myRole}.png`; 
+    }
+}
+
+function moveRoom(roomName) {
+    console.log("移動ボタン押下:", roomName);
+    // 💡 サーバーへ destination だけでなく、自分の名前も一緒に送る
+    socket.emit('move_to', { 
+        name: myName,
+        username: myName,
+        destination: roomName 
+    });
+}
+
+
+
+
+
+
+window.onload = function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlName = urlParams.get('name');
+    const urlTeam = urlParams.get('team');
+
+    if (urlName && urlTeam) {
+        // 💡 1. ユーザー情報をグローバル変数に即時セット
+        myName = urlName;
+        myTeam = urlTeam;
+
+        // 💡 2. ログイン用の画面を完全に非表示にする
+        const loginOverlay = document.getElementById('login-overlay');
+        if (loginOverlay) {
+            loginOverlay.style.setProperty('display', 'none', 'important');
+        }
+
+        // 💡 3. 画面がずれるのを防ぐため、body全体の表示スタイルを強制リセット
+        document.body.style.display = 'flex';
+        document.body.style.flexDirection = 'column';
+        document.body.style.height = '100vh';
+        document.body.style.margin = '0';
+        document.body.style.padding = '0';
+        document.body.style.overflow = 'hidden'; // 余計な全体スクロールを禁止してズレを防ぐ
+
+        // 💡 4. 【復活！】メインのコンテナ要素を画面いっぱいに広げて表示する
+        const gameContainer = document.getElementById('game-container') || document.querySelector('.container') || document.getElementById('main-content');
+        if (gameContainer) {
+            gameContainer.style.display = 'flex';
+            gameContainer.style.flexDirection = 'column';
+            gameContainer.style.height = '100%';
+            gameContainer.style.width = '100%';
+        }
+
+        // 💡 5. 【復活！】チャットエリアや入力欄のズレを無理やり引っ張り戻す補正
+        const chatControls = document.querySelector('.chat-controls');
+        if (chatControls) {
+            chatControls.style.position = 'relative';
+            chatControls.style.bottom = '0';
+            chatControls.style.width = '100%';
+            chatControls.style.boxSizing = 'border-box';
         }
 
         currentRoomName = "待機室";
         if (typeof updateDotPosition === 'function') updateDotPosition();
         if (typeof refreshButtons === 'function') refreshButtons();
 
-        setTimeout(() => {
-            console.log("サーバーに参加リクエストを送信:", myName);
-            socket.emit('join_game', { username: myName });
-        }, 500);
+
+        // 💡 6. 【地図・役職画像を強制表示する安全装置】
+        socket.on('game_init', (data) => {
+            console.log("【URL入室】初期化データを受信しました:", data);
+                
+            // ─── 1. グローバル変数へのデータ受け取り ───
+            if (data.role) myRole = data.role;
+            if (data.phase) currentPhase = data.phase;
+            if (data.room_name) currentRoomName = data.room_name;
+            if (data.room_url) currentRoomUrl = data.room_url;
+            if (data.map_url) currentMapUrl = data.map_url;
+            if (data.can_move) canMoveList = data.can_move;
+                
+            // ─── 2. 地図画像の強制セット ───
+            const mapImgEl = document.getElementById('map-image') || document.getElementById('map-img') || document.querySelector('.map-section img');
+            if (mapImgEl && data.map_url) {
+                mapImgEl.src = data.map_url;
+            }
+        
+            // ─── 3. 【大修正！】HTMLの役職表示エリアにデータを正しく反映する ───
+            try {
+                // あなたのHTMLにある正しいID名で要素を取得
+                const roleImgEl = document.getElementById('role-image');
+                const roleNameEl = document.getElementById('role-name-text');
+            
+                // ①「役職確認中...」の文字を「村人」などに書き換える
+                if (roleNameEl && myRole) {
+                    roleNameEl.textContent = myRole; // 👈 ここで「村人」に切り替わります！
+                    console.log("役職テキストを更新しました:", myRole);
+                }
+            
+                // ② 画像のパスをセットして、非表示(display: none)を解除して表示する
+                if (roleImgEl && myRole) {
+                    roleImgEl.src = `/static/${myRole}.png`; // /static/村人.png を読み込む
+                    roleImgEl.style.display = 'block';       // 👈 ここで画像が表示されます！
+                    console.log("役職画像をセットしました:", roleImgEl.src);
+                }
+            } catch (e) {
+                console.log("【警告】役職表示の更新でエラーが出ました:", e);
+            }
+        
+            // ─── 4. ボタンとプレイヤー位置の同期 ───
+            try { if (typeof updateDotPosition === 'function') updateDotPosition(); } catch(e) {}
+            try { if (typeof refreshButtons === 'function') refreshButtons(); } catch(e) {}
+            
+            console.log("ゲーム画面の初期化・表示の反映が完了しました。");
+        });
+
+
+        // 💡 7. 【復活！】0.5秒待ってから、サーバーに参加リクエストを送信
+        // ※Socketがまだ接続されていない場合は、接続完了(connect)を待ってから0.5秒後に送信します
+        const sendJoin = () => {
+            setTimeout(() => {
+                console.log("サーバーに参加リクエストを送信:", myName, "チーム:", myTeam);
+                socket.emit('join_game', { name: myName, team: myTeam });
+            }, 500);
+        };
+
+        if (socket.connected) {
+            sendJoin();
+        } else {
+            socket.on('connect', () => {
+                sendJoin();
+            });
+        }
     }
 };
