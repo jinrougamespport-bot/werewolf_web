@@ -33,6 +33,9 @@ body.night-mode #chat-log {
 }
 
 
+
+
+
 #login-overlay { 
     position: fixed; /* absoluteから変更して画面全体を覆う */
     top: 0;
@@ -764,4 +767,64 @@ body.gm-active #gm-console {
     cursor: pointer;
     font-size: 1.2rem;
     box-shadow: 0 0 20px rgba(39, 174, 96, 0.5);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* 🟢 style.css の末尾にそのまま貼り付けてください */
+
+/* チャット全体の並び方の設定（縦に上から順に並べます） */
+#chat-log {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* 吹き出し同士の上下のすき間 */
+}
+
+/* 💬 吹き出しの共通デザイン（すべて左寄せ：flex-start） */
+.chat-entry {
+    align-self: flex-start;    /* 全員のメッセージを左寄せにする */
+    padding: 10px 14px;        /* 吹き出しの中の余白 */
+    border-radius: 16px;       /* 角を丸くしてチャット風に */
+    max-width: 75%;            /* 横幅が広がりすぎないように制限 */
+    width: fit-content;        /* 文字の長さに合わせて自動で幅を調整 */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* 軽い影 */
+    font-size: 14px;
+    line-height: 1.4;
+    word-break: break-all;     /* 長い英数字でも自動折り返し */
+}
+
+/* 👤 他人が送信したメッセージ（白背景に黒文字） */
+.chat-entry.other-msg {
+    background-color: #ffffff;
+    color: #333333;
+}
+
+/* ✨ 自分が送信したメッセージ（ここだけ色を付けます：例として綺麗な薄緑） */
+.chat-entry.my-msg {
+    background-color: #90ee90; /* 👈 自分の文字の背景色（お好みの色に変更可能です） */
+    color: #111111;            /* 自分の文字の色 */
+    font-weight: 500;          /* 自分の文字を少しだけくっきりさせる */
+}
+
+/* 🌙 夜モードの時の見た目 */
+body.night-mode .chat-entry.other-msg {
+    background-color: #2c2c3e !important;
+    color: #ffffff !important;
+}
+body.night-mode .chat-entry.my-msg {
+    background-color: #2e7d32 !important; /* 夜モード用の濃い緑 */
+    color: #ffffff !important;
 }
