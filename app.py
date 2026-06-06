@@ -72,6 +72,12 @@ app.config['JSON_AS_ASCII'] = False
 players = {}
 game_state = {"phase": "day"}
 
+
+# 💡 URL入室などのために、通信ID(sid)とユーザー名を確実に紐付ける名簿
+socket_users = {}
+
+
+
 MAP_URLS = {
     "day": "/static/マップ画像昼.png",
     "night": "/static/マップ画像夜.png"
@@ -218,41 +224,57 @@ def handle_authentication(data):
             # ユーザーが存在しない
             emit('auth_error', {"msg": "ユーザーが見つかりません。新規登録してください。"})
 
+
+
+# 🟢 app.py の @socketio.on('join_game') 部分を以下のように修正します
+
 @socketio.on('join_game')
-def handle_join(data):
-    username = data.get('username')
-    sid = request.sid
+def handle_join_game(data):
+    username = data.get('name')
+    team = data.get('team')
+    room = f"{team}_game_room"
     
-    # JSONから役職を読み込み、なければ割り当てて保存
-    saved_roles = load_roles()
-    if username in saved_roles:
-        assigned_role = saved_roles[username]
-    else:
-        # GM専用の名前でなければランダム
-        if username == "gm_jinrouGM":
-            assigned_role = "GM"
-        else:
-            assigned_role = random.choice(["村人", "人狼", "占い師", "守り人"])
-        saved_roles[username] = assigned_role
-        save_roles(saved_roles)
+    join_room(room)
+    print(f"【システム】{username} が {room} に参戦しました。")
+    
+    # プレイヤー一覧を更新
+    emit_player_list() 
 
-
-    players[sid] = {
-        'name': username,
-        'room': '待機室',
-        'role': assigned_role,
-        'is_alive': True,
-        'is_gm': (assigned_role == "GM")
+    # ---------------------------------------------------------
+    # 🛠️ コメントアウトを活かすために、必要な変数をここで準備します
+    # ---------------------------------------------------------
+    
+    # 1. ユーザー情報（user）を準備する
+    # ※もしデータベースやグローバルな辞書（playersなど）があればそこから取得します。
+    # ここでは仮に、セッションや参加データからユーザー情報を模した辞書を作ります。
+    # (すでに役職を割り振る仕組みが他にある場合は、そこから user を取得してください)
+    user = {
+        "role": "村人"  # 本来は人狼や狂人など、ユーザーごとの役職を入れる変数
+    }
+    
+    # 2. 初期部屋（new_room）を定義する
+    new_room = "待機室"
+    
+    # 3. 移動可能リスト（next_moves）を定義する
+    next_moves = ["電気室", "畑", "風車", "貯水タンク", "武器庫", "食堂", "広場"]
+    
+    # 4. ルームごとの画像データ（ROOM_DATA）を定義する（ない場合は空の辞書）
+    ROOM_DATA = {
+        "待機室": "/static/待機室.png",
+        "電気室": "/static/電気室.png"
     }
 
-    join_room("待機室")
-    emit('role_update', {'role': assigned_role}, to=sid)
-    emit('room_update', {
-        "room": "待機室",
-        "url": ROOM_DATA.get("待機室"),
-        "can_move_to": ROOM_MOVES.get("待機室")
-    }, to=sid)
-    emit_player_list()
+    # ---------------------------------------------------------
+    # ✨ コメントアウトを外し、変数を使ってJavaScriptへ送信！
+    # ---------------------------------------------------------
+    emit('game_init', {
+        "role": user.get('role', '村人'),       # user辞書から役職を取得（なければ村人）
+        "phase": "day", 
+        "room_name": new_room,                 # 上で決めた "待機室" が入る
+        "map_url": "/static/マップ画像昼.png",
+        "room_url": ROOM_DATA.get(new_room, f"/static/{new_room}.png"), # 待機室の画像パス
+        "can_move": next_moves                 # 上で決めた移動先リストが入る
+    }, to=request.sid)
 
 
 
@@ -285,20 +307,33 @@ def handle_message(data):
         }, to=user['room'])
 
 
-@socketio.on('chat_message') # JS側の socket.emit('chat_message') と合わせる
+@socketio.on('chat_message')
 def handle_chat(data):
-    user = players.get(request.sid)
+    print(f"【サーバー受信チェック】JSから届いたデータ: {data}")
+    
+    username = data.get('name', 'ゲスト')
+    msg = data.get('msg', '')
+    
+    # 💡 【修正】まずは名簿(players)からこのユーザーの正しいチームを探す
+    user = players.get(request.sid) or players.get(username)
+    
+    if user and user.get('team'):
+        team = user.get('team')
+    elif isinstance(data, dict) and data.get('team'):
+        # JS側から team: myTeam のようにデータが送られてきていればそれを使う
+        team = data.get('team')
+    else:
+        # どちらもなければセッション、最終手段として身元の確実なデフォルト（例: '緑チーム'）
+        team = session.get('team', '緑チーム')
+        
+    room = f"{team}_game_room"
+    
+    print(f"【サーバー送信チェック】発言者: {username} ({team}) -> 部屋 {room} の全員にチャットを転送します。")
+    
+    # 部屋全体に送信（to=room でしっかりとチームの部屋に限定）
+    emit('chat_message', {'name': username, 'msg': msg}, to=room)
 
-    if user:
-        name = user['name']
-        msg = data.get('msg')
-        room = user.get('room', '不明') # 現在の部屋名を取得
-
-        # 名前に (部屋名) を付けて、誰がどこで話しているか分かりやすくする
-        display_name = f"{name} ({room})"
-
-        # 【修正ポイント】to=room を削除し、broadcast=True を追加
-        emit('new_chat', {'name': display_name, 'msg': msg}, broadcast=True)
+    
 
 @socketio.on('request_nearby_players')
 def handle_request_nearby():
@@ -314,36 +349,102 @@ def handle_request_nearby():
             'members': members
         })
 
+# 🟢 app.py の @socketio.on('move') のまとまりを以下に差し替えます
+
 @socketio.on('move')
 def handle_move(data):
-    new_room = data.get('room')
-    user = players.get(request.sid)
-    
-    print(f"DEBUG: 移動リクエスト受信 - ユーザー: {user}, 行き先: {new_room}")
+    username = session.get('username') or socket_users.get(request.sid)
+    new_room = data.get('room') or data.get('destination') or "待機室"
 
-    if user and new_room in ROOM_MOVES.get(user['room'], []):
-        # 以前の部屋から退出して新しい部屋へ（Socket.IOのルーム機能）
+    print(f"DEBUG: 移動リクエスト受信 - ユーザー: {username}, 行き先: {new_room}")
+
+    if not username:
+        print("DEBUG: 移動失敗 - ユーザー名が不明です")
+        return
+
+    # 通信IDまたは名前からユーザーを検索
+    user = players.get(request.sid)
+    if not user:
+        user = players.get(username)
+
+    # 💡 【重要】データが見つからなかった場合、user_roles.json から本当の役職を読み出す
+    if not user:
+        correct_role = "村人" # 見つからなかった場合のデフォルト
+        
+        # user_roles.json を読み込む処理
+        json_path = "user_roles.json"
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    roles_data = json.load(f)
+                    # jsonファイルからこのユーザーの役職を取得
+                    correct_role = roles_data.get(username, "村人")
+                    print(f"【システム】user_roles.json から {username} の役職（{correct_role}）を取得しました。")
+            except Exception as e:
+                print(f"【エラー】user_roles.json の読み込みに失敗しました: {e}")
+        else:
+            print(f"【警告】{json_path} が見つかりません。")
+
+        # 取得した正しい役職（守り人など）を使ってプレイヤーデータを復旧
+        user = {
+            "name": username,
+            "room": "待機室",
+            "role": correct_role,  # 👈 ここに json から取ってきた「守り人」が入る！
+            #"team": session.get('team') or "緑チーム",#ここにあったーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+            "is_alive": True,
+            "is_gm": True if correct_role == "GM" else False,
+            "icon_image": "icon1.png"
+        }
+        players[request.sid] = user
+        players[username] = user
+        print(f"【システム】{username} をプレイヤー名簿に正しい役職（{correct_role}）で自動復旧しました。")
+
+    # ── これ以降の処理はそのまま ──
+    allowed_rooms = ["電気室", "畑", "風車", "貯水タンク", "武器庫", "食堂", "広場", "待機室"]
+    valid_moves = ROOM_MOVES.get(user['room'], [])
+
+    if user['room'] == "待機室" or not valid_moves:
+        valid_moves = allowed_rooms
+
+    if new_room in valid_moves:
         leave_room(user['room'])
         join_room(new_room)
         
-        # ユーザー情報を更新
         user['room'] = new_room
-        
         print(f"DEBUG: 移動成功 - {user['name']} は {new_room} に移動しました")
 
-        # 本人に更新情報を送る (to=request.sid を追加)
+        next_moves = ROOM_MOVES.get(new_room, [])
+        if not next_moves:
+            next_moves = [r for r in allowed_rooms if r != "待機室"]
+
+        # ① 本人に新しい部屋の画像を通知
         emit('room_update', {
             "room": new_room,
-            "url": ROOM_DATA.get(new_room, f"/static/{new_room}.png"), # URLが空なら補完
-            "can_move_to": ROOM_MOVES.get(new_room, [])
+            "url": ROOM_DATA.get(new_room, f"/static/{new_room}.png"), 
+            "can_move_to": next_moves
         }, to=request.sid)
+
+        # ② ゲーム画面の初期化・同期（これで画面の表示も「守り人」になります）
+        emit('game_init', {
+            "role": user.get('role', '村人'), 
+            "phase": "day", 
+            "room_name": new_room,
+            "map_url": "/static/マップ画像昼.png",
+            "room_url": ROOM_DATA.get(new_room, f"/static/{new_room}.png"),
+            "can_move": next_moves
+        }, to=request.sid)
+
+        if 'emit_player_list' in globals() or 'emit_player_list' in locals():
+            emit_player_list()
+            
     else:
-        print(f"DEBUG: 移動失敗 - 条件を満たしていません (user={user})")
+        print(f"DEBUG: 移動失敗 - 条件を満たしていません (user={user['name']}, 現在地={user['room']}, 行き先={new_room})")
+
+
+
+
 
 # ※必ず関数の外（ファイルの上のほうなど）に定義してください
-night_actions = {"attack_target": None, "guard_target": None}
-
-# ⚠️ app.pyの上のほう（関数の外）にこれが定義されているか確認してください
 night_actions = {"attack_target": None, "guard_target": None}
 
 @socketio.on('use_skill')
@@ -526,9 +627,10 @@ def handle_game_end(data):
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    if request.sid in players:
-        del players[request.sid]
-        emit_player_list()
+    # 切断したプレイヤーを名簿から削除
+    if request.sid in socket_users:
+        del socket_users[request.sid]
+
 
 @app.route('/dashboard')
 def dashboard():
@@ -561,11 +663,16 @@ def login_api():
                 "wins": 0, "losses": 0
             }
             save_users(users)
+            
+            # ★新規登録時もセッションに保存してログイン状態にする
+            session['username'] = username
             return jsonify({"success": True, "msg": "登録完了！"})
 
         else:  # ログイン処理
             if username in users:
                 if check_password_hash(users[username]['password'], password):
+                    # ★ココが漏れていました！ログイン成功時もセッションに保存
+                    session['username'] = username
                     return jsonify({"success": True})
                 else:
                     return jsonify({"success": False, "msg": "パスワードが違います"})
@@ -672,8 +779,7 @@ def google_callback():
 
     # セッションに保存してダッシュボードへ
     session['username'] = name
-    # 'dashboard_page' ではなく 'dashboard' に変更します
-    return redirect(url_for('dashboard', name=name))
+    return redirect(url_for('icon_set_page'))  # ← SNSログイン後も直接アイコン設定へ！
 
 # --- LINEログイン用のルート ---
 
@@ -714,7 +820,7 @@ def line_callback():
         save_users(users)
 
     session['username'] = name
-    return redirect(url_for('dashboard', name=name))
+    return redirect(url_for('icon_set_page'))  # ← アイコン設定画面へ直接飛ばす！
 
 
 
@@ -723,6 +829,201 @@ def handle_end_roll():
     # 信号が来たら、接続している全員に「start_end_roll」を拡散する
     socketio.emit('start_end_roll')
     
+
+
+@app.route('/icon_set')
+def icon_set_page():
+    if 'username' not in session:
+        return redirect(url_for('index'))
+    return render_template('icon_set.html')
+
+@app.route('/set_icon', methods=['POST'])
+def set_icon():
+    if 'username' not in session:
+        return redirect(url_for('index'))
+    
+    icon_image = request.form.get('icon_image', 'icon1.png')
+    session['icon_image'] = icon_image
+    
+    return redirect(url_for('standby_page'))
+
+
+
+# 3. 待機室のルート（前回のものを少し調整）
+@app.route('/standby')
+def standby_page():
+    if 'username' not in session:
+        return redirect(url_for('index'))
+    return render_template('Standby screen.html')
+
+
+
+
+# 現在待機室にいるプレイヤーの位置情報を保持する辞書
+lobby_players = {}
+
+@socketio.on('join_lobby')
+def handle_join_lobby(data):
+    room = "standby_room"
+    join_room(room)
+    
+    icon_image = session.get('icon_image', 'icon1.png')
+    
+    lobby_players[request.sid] = {
+        "name": data.get("name", "ゲスト"),
+        "x": data.get("x", 300),
+        "y": data.get("y", 300),
+        "team": "未所属",
+        "icon_image": icon_image,
+        "ready": False  # 💡 初期状態は準備未完了
+    }
+    emit('update_players', lobby_players, to=room)
+
+
+@socketio.on('move_player')
+def handle_move_player(data):
+    # 移動したプレイヤーの座標とチームを更新
+    if request.sid in lobby_players:
+        lobby_players[request.sid]["x"] = data.get("x")
+        lobby_players[request.sid]["y"] = data.get("y")
+        lobby_players[request.sid]["team"] = data.get("team")
+        
+        # 全員に位置を同期
+        emit('update_players', lobby_players, to="standby_room")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    # 退出したプレイヤーを削除
+    if request.sid in lobby_players:
+        del lobby_players[request.sid]
+        emit('update_players', lobby_players, to="standby_room")
+
+
+
+@socketio.on('toggle_ready')
+def handle_toggle_ready():
+    if request.sid not in lobby_players:
+        return
+        
+    # 状態を反転させる (True ⇄ False)
+    current_status = lobby_players[request.sid].get("ready", False)
+    lobby_players[request.sid]["ready"] = not current_status
+    
+    # 変更を全員に通知（画面にチェックマークなどを出す用）
+    emit('update_players', lobby_players, to="standby_room")
+    
+    # ─── 👥 グループ全員が完了したかの判定ロジック ───
+    my_team = lobby_players[request.sid]["team"]
+    
+    # 「未所属」の場合はゲーム開始判定をしない
+    if my_team == "未所属":
+        return
+
+    # 同じチームのプレイヤーを抽出
+    team_members = [p for p in lobby_players.values() if p["team"] == my_team]
+    
+    # 同じチームのメンバーが全員「ready == True」かチェック
+    # 同じチームのメンバーが全員「ready == True」かチェック
+    if all(m.get("ready", False) for m in team_members):
+        # 💡 開始するチーム名（例: "青チーム"）を一緒に送る
+        emit('start_game_trigger', {"team": my_team}, to="standby_room")
+
+
+# 🟢 app.py の @socketio.on('join_game') を以下に丸ごと差し替えます
+
+@socketio.on('join_game')
+def handle_join_game(data):
+    username = data.get('name')
+    team = data.get('team')
+    room = f"{team}_game_room"
+    
+    join_room(room)
+    print(f"【システム】{username} が {room} に参戦しました。")
+    
+    # プレイヤー一覧を更新
+    emit_player_list() 
+    
+    # 💡 【大修正】参加した瞬間も、最初から user_roles.json を見に行くようにする
+    correct_role = "村人"  # 見つからなかった場合のデフォルト
+    json_path = "user_roles.json"
+    
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                roles_data = json.load(f)
+                correct_role = roles_data.get(username, "村人")
+                print(f"【システム】初期化時: user_roles.json から {username} の役職（{correct_role}）を取得しました。")
+        except Exception as e:
+            print(f"【エラー】初期化時: user_roles.json の読み込みに失敗しました: {e}")
+
+    # 名簿（players）に初期状態を正しく登録する
+    user_data = {
+        "name": username,
+        "room": "待機室",
+        "role": correct_role,  # 👈 最初から正しい役職を入れる！
+        "team": team ,#ここにあったーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+        "is_alive": True,
+        "is_gm": True if correct_role == "GM" else False,
+        "icon_image": "icon1.png"
+    }
+    players[request.sid] = user_data
+    players[username] = user_data
+
+    # JavaScript（画面側）に送る初期化データを正しくセット
+    init_data = {
+        "role": correct_role,   # 👈 固定の「村人」ではなく、jsonから取った正しい役職を渡す！
+        "phase": "day",         # 初期フェーズ（昼）
+        "room_name": "待機室",   # 初期部屋
+        "map_url": "/static/マップ画像昼.png",
+        "room_url": "/static/待機室.png",
+        "can_move": ["電気室", "畑", "風車", "貯水タンク", "武器庫", "食堂", "広場"] # 移動可能リスト
+    }
+    
+    # 参加した本人に対して初期化イベントを送信
+    emit('game_init', init_data, to=request.sid)
+    
+    # 部屋全体にゲーム状態が更新されたことを通知
+    emit('status_change', {"phase": "day"}, to=room)
+
+
+# 🟢 app.py のチャット送信イベントを以下のように修正・差し替えます
+
+# 🟢 app.py のチャット送信イベントを以下のように差し替えます
+
+@socketio.on('message')  # 👈 イベント名が 'send_message' の場合はそこに合わせてください
+def handle_message(data):
+    # セッションまたは通信IDから送信者の名前を取得
+    username = session.get('username') or socket_users.get(request.sid)
+    msg = data.get('msg') or data.get('message')
+
+    if not username or not msg:
+        return
+
+    # プレイヤー名簿からこのユーザーのデータを取得
+    user = players.get(request.sid) or players.get(username)
+    
+    # 💡 ユーザーデータからチーム名を取得。なければデータ(data)から取得、それもなければデフォルト
+    #my_team = "緑チーム"#ここにあったーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    if user and user.get('team'):
+        my_team = user.get('team')
+    elif isinstance(data, dict) and data.get('team'):
+        my_team = data.get('team')
+    elif session.get('team'):
+        my_team = session.get('team')
+
+    # 💡 送信先のルーム名を決定 (例: "赤チーム_game_room")
+    team_room = f"{my_team}_game_room"
+    
+    print(f"【チャット】{username} ({my_team}) -> {msg} [宛先: {team_room}]")
+
+    # 💡 【超重要】 to=team_room を指定して、同じチームの部屋だけに送る！（broadcast=Trueは絶対に使わない）
+    emit('new_message', {
+        "name": username,
+        "msg": msg,
+        "role": user.get('role', '村人') if user else '村人',
+        "is_gm": user.get('is_gm', False) if user else False,
+        "team": my_team
+    }, to=team_room)  # 👈 ここで特定のチーム部屋だけに限定配信します！
 
 
 if __name__ == '__main__':
