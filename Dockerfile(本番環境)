@@ -1,0 +1,14 @@
+FROM python:3.11-slim
+
+ENV TZ=Asia/Tokyo
+WORKDIR /app
+
+# 依存ライブラリをコピーしてインストール
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 全ファイルをコンテナ内にコピー
+COPY . .
+
+# Renderのポートに自動対応して起動
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --workers 1 -k eventlet app:app"]
